@@ -14,9 +14,22 @@ dotnet run --project ActionRing
 The app has no main window. It sits in the tray; press **Ctrl+Alt+Space** (or
 left-click the tray icon) to summon the ring at the mouse.
 
+Two ways to work it, and you don't choose between them up front — the same press
+does both:
+
+- **Hold and flick.** Keep the hotkey held, move onto an item, let go: it runs. No
+  click anywhere in the gesture.
+- **Tap and click.** Release the hotkey straight away and the ring stays up to be
+  clicked, or driven with `1`–`9`.
+
+Aiming is by direction, not by landing on a target. Each button owns the whole wedge
+of the screen it sits in, out to the edge of the ring's window, so a shove upward
+picks the item at the top — there is no small circle to hit. Only the centre keeps a
+circular target, since it means cancel.
+
 - Hover a button — it pops, tints with its accent, and names itself on a pill beside it
-- Left-click to invoke; `1`–`9` invoke a button directly
 - The red centre button, `Esc`, right-click, or clicking away all dismiss it
+- Releasing the hotkey over the centre, or over nothing, dismisses it too
 
 ## Building the portable exe
 
@@ -42,6 +55,8 @@ from the tray menu.
 ```jsonc
 {
   "HotKey": "Ctrl+Alt+Space",
+  "HoldToActivate": true,  // hold the hotkey, move onto an item, release to run it
+  "HoldThresholdMs": 180,  // how long a press must last to count as a hold, not a tap
   "ButtonRadius": 23,      // size of each round button, in DIPs
   "OrbitRadius": 60,       // centre-to-button distance; grown if buttons won't fit
   "HubRadius": 16,         // the centre dismiss button
@@ -139,7 +154,7 @@ ActionRing/
   App.xaml(.cs)             tray icon, hotkey registration, single-instance guard
   Views/RingWindow.xaml.cs  the ring: buttons, hub, label pill, hover, invoke
   Services/
-    RingLayout.cs           button placement + nearest-centre hit testing
+    RingLayout.cs           button placement + wedge (direction-based) hit testing
     MemoryTrim.cs           hands idle pages back to the OS
     AcrylicBrushes.cs       the faux-acrylic tint / sheen / grain layers
     ActionRunner.cs         launches processes, injects keystrokes
@@ -208,13 +223,47 @@ that. Separately, WPF re-applies its own layout on `Show()` and can override a
 `SetWindowPos` issued beforehand, snapping the ring across the screen - so it is
 shown first and moved after, while still transparent.
 
-**Hit testing is nearest-centre, not visual.** `RingLayout.HitTest` measures distance
-to each button centre with a little slop. Relying on WPF hit testing against the
-visuals means the glyph text and hairline strokes steal hits inside their own button.
+**Hit testing is by direction, not against the visuals.** `RingLayout.SectorIndex`
+turns a point into an angle and an angle into a button: each one owns the wedge it
+sits in, from the hub out to wherever the window ends, which is what makes a flick in
+a direction enough to choose. An open group's children own the arc they fan across,
+but only past the halfway line between the two orbits — and only that arc, so
+overshooting the fan leaves the group open rather than collapsing it mid-reach. The
+centre is the one exception and stays a plain circle.
+
+Two earlier approaches are worth knowing were tried. WPF hit testing against the
+visuals lets the glyph text and hairline strokes steal hits inside their own button.
+Nearest-centre-with-slop fixes that but keeps the targets small, so the ring still had
+to be aimed at rather than thrown at.
+
+**The wedges need `CreateInputPad` to exist at all, and the reason is not obvious.**
+`AllowsTransparency` makes this a layered window, and a layered window passes mouse
+input *through* pixels whose alpha is zero. Nearly all of this window is such a pixel,
+so `MouseMove` only ever arrived while the pointer was over a drawn circle — the
+wedges were computed correctly and never asked about. A rectangle over the whole
+window filled with one unit of alpha is enough to make Windows deliver the messages
+and is invisible on any display. The symptom this produced is worth recognising if it
+comes back: the hold gesture worked everywhere while plain hovering only worked on the
+circles, because the gesture polls `GetCursorPos` instead of waiting to be told.
+
+**The hold gesture polls, and has to.** `RegisterHotKey` reports the press and never
+the release, so `OnHoldTick` reads `GetAsyncKeyState` every 16 ms and ends the gesture
+when any part of the combo comes up. It arms only after `HoldThresholdMs`, which is
+what keeps a tap from being read as a hold and stops the pointer's resting position
+from counting as a choice the instant the ring appears. The same tick reads the cursor
+via `GetCursorPos` rather than mouse events: WPF only delivers moves over the window,
+and a quick flick outruns it — polling keeps aiming honest when the pointer has shot
+well past the ring.
+
+Releasing does not run the action immediately, and that delay is load-bearing. A
+combo comes up one key at a time, and a `Keys` action injected while the other half is
+still physically down arrives at the target window with those modifiers folded in —
+`Ctrl+C` chosen out of `Ctrl+Alt+Space` lands as `Ctrl+Alt+C`. So the release locks
+the choice, stops tracking the cursor, and waits for the keyboard to clear (capped at
+700 ms, in case something is stuck) before running anything.
 
 ## Ideas not built yet
 
-- Drag-out gesture selection (press hotkey, flick, release) instead of click
 - Nested rings — a button that opens a sub-ring
 - A settings UI, so `actionring.json` isn't the only editor
 - Per-app rings, keyed off the foreground window's process name

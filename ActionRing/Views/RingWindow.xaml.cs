@@ -28,6 +28,17 @@ public partial class RingWindow : Window
     {
         public required int ParentIndex { get; init; }
         public required List<RingButton> Children { get; init; }
+
+        /// <summary>
+        /// Where each child sits, clockwise from 12 o'clock. Aiming is done in
+        /// angles rather than against the drawn circles, so the fan is kept in
+        /// the form the hit test wants.
+        /// </summary>
+        public required List<double> Angles { get; init; }
+
+        /// <summary>Half the gap between two children - the fan's aiming slack.</summary>
+        public required double HalfStep { get; init; }
+
         public required FrameworkElement Layer { get; init; }
         public required ScaleTransform Scale { get; init; }
     }
@@ -49,6 +60,16 @@ public partial class RingWindow : Window
 
     private const string CloseLabel = "Close";
 
+    /// <summary>How often the hold gesture re-reads the keyboard and cursor.</summary>
+    private static readonly TimeSpan HoldPoll = TimeSpan.FromMilliseconds(16);
+
+    /// <summary>
+    /// Longest we'll wait for the combo to finish coming up before running the
+    /// chosen action anyway. A backstop, not a normal path: fingers leave a key
+    /// in tens of milliseconds, and something has to give if one is stuck.
+    /// </summary>
+    private const long HoldDrainCapMs = 700;
+
     private static readonly Color HubAccent = Color.FromRgb(0xE0, 0x3E, 0x52);
     private static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(110);
 
@@ -67,6 +88,14 @@ public partial class RingWindow : Window
     private int _hoveredChild = None;
     private int _openGroup = None;
     private IntPtr _previousForeground;
+
+    private readonly System.Windows.Threading.DispatcherTimer _holdTimer;
+    private ModifierKeys _holdModifiers;
+    private Key _holdKey;
+    private long _holdSince;
+    private bool _holdArmed;
+    private long _holdReleasedAt;
+    private bool _holdReleased;
 
     private readonly System.Windows.Threading.DispatcherTimer _trimTimer;
 
@@ -104,10 +133,26 @@ public partial class RingWindow : Window
             MemoryTrim.Now();
         };
 
+        // Input priority: this timer *is* the pointer while the gesture is
+        // running, so it must not queue behind background work.
+        _holdTimer = new System.Windows.Threading.DispatcherTimer(
+            System.Windows.Threading.DispatcherPriority.Input)
+        {
+            Interval = HoldPoll,
+        };
+        _holdTimer.Tick += OnHoldTick;
+
         IsVisibleChanged += (_, _) =>
         {
-            if (IsVisible) _trimTimer.Stop();
-            else _trimTimer.Start();
+            if (IsVisible)
+            {
+                _trimTimer.Stop();
+            }
+            else
+            {
+                _trimTimer.Start();
+                _holdTimer.Stop();
+            }
         };
     }
 
@@ -180,6 +225,8 @@ public partial class RingWindow : Window
         Surface.Height = Height;
         _ringCenter = new Point(halfWidth, halfHeight);
 
+        Surface.Children.Add(CreateInputPad());
+
         for (var i = 0; i < actions.Count; i++)
         {
             var center = RingLayout.ButtonCenter(_ringCenter, _orbit, i, actions.Count);
@@ -203,6 +250,32 @@ public partial class RingWindow : Window
 
         // Last, so a label is never painted under a button.
         if (_config.ShowLabels) Surface.Children.Add(_pill);
+    }
+
+    /// <summary>
+    /// An all-but-invisible sheet over the whole window, there purely to be hit.
+    ///
+    /// <c>AllowsTransparency</c> makes this a layered window, and a layered
+    /// window passes mouse input straight through pixels whose alpha is zero -
+    /// so without this the ring only ever heard about the pointer while it was
+    /// over a drawn circle, and the wedges may as well not exist. One unit of
+    /// alpha is enough to make Windows deliver the messages and is not visible
+    /// on any display.
+    ///
+    /// The hold gesture doesn't need it - it polls the cursor rather than
+    /// waiting to be told - which is exactly why the two disagreed.
+    /// </summary>
+    private FrameworkElement CreateInputPad()
+    {
+        var fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
+        fill.Freeze();
+
+        return new Rectangle
+        {
+            Width = Width,
+            Height = Height,
+            Fill = fill,
+        };
     }
 
     private RingButton CreateButton(
@@ -324,10 +397,15 @@ public partial class RingWindow : Window
         };
 
         var children = new List<RingButton>();
+        var angles = new List<double>();
         var parentCenter = RingLayout.ButtonCenter(_ringCenter, _orbit, parentIndex, siblingCount);
+        var spread = (parent.Items.Count - 1) * step;
 
         for (var i = 0; i < parent.Items.Count; i++)
         {
+            var angle = parentAngle - spread / 2 + i * step;
+            angles.Add(angle < 0 ? angle + 360 : angle % 360);
+
             var center = RingLayout.ChildCenter(
                 _ringCenter, _subOrbit, parentAngle, i, parent.Items.Count, step);
 
@@ -354,6 +432,8 @@ public partial class RingWindow : Window
         {
             ParentIndex = parentIndex,
             Children = children,
+            Angles = angles,
+            HalfStep = step / 2,
             Layer = layer,
             Scale = scale,
         };
@@ -507,10 +587,19 @@ public partial class RingWindow : Window
     /// MOD_NOREPEAT, so one physical press arrives here exactly once and a plain
     /// toggle needs no guard against auto-repeat.
     /// </summary>
-    public void Toggle()
+    public void Toggle(ModifierKeys modifiers = ModifierKeys.None, Key key = Key.None)
     {
-        if (IsVisible) Hide();
-        else ShowRing();
+        if (IsVisible)
+        {
+            Hide();
+            return;
+        }
+
+        ShowRing();
+
+        // Only a real hotkey press can be held; the tray menu has no combo to
+        // watch, and passes none.
+        if (_config.HoldToActivate && key != Key.None) BeginHoldWatch(modifiers, key);
     }
 
     public void ShowRing()
@@ -641,64 +730,162 @@ public partial class RingWindow : Window
             new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(120)));
     }
 
+    // ---- hold gesture ---------------------------------------------------
+
+    /// <summary>
+    /// Starts watching the hotkey that just opened the ring. Hold it, move onto
+    /// an item, let go, and that item runs - the whole interaction without a
+    /// click. Let go straight away instead and the ring simply stays up, so the
+    /// old tap-then-click way of working is untouched.
+    /// </summary>
+    private void BeginHoldWatch(ModifierKeys modifiers, Key key)
+    {
+        _holdModifiers = modifiers;
+        _holdKey = key;
+        _holdSince = Environment.TickCount64;
+        _holdArmed = false;
+        _holdReleased = false;
+        _holdTimer.Start();
+    }
+
+    private void OnHoldTick(object? sender, EventArgs e)
+    {
+        if (!IsVisible)
+        {
+            _holdTimer.Stop();
+            return;
+        }
+
+        // Once the release has started, the choice is already made: stop reading
+        // the cursor so a twitch on the way up can't move it, and wait for the
+        // keyboard to clear before running anything.
+        if (_holdReleased)
+        {
+            if (AnyComboKeyDown()
+                && Environment.TickCount64 - _holdReleasedAt < HoldDrainCapMs)
+            {
+                return;
+            }
+
+            _holdTimer.Stop();
+            InvokeHovered(closeOnMiss: true);
+            return;
+        }
+
+        if (IsComboFullyDown())
+        {
+            // Below the threshold the press is still ambiguous - it could yet
+            // turn out to be a tap - so nothing is armed and the cursor is left
+            // alone. Arming late also stops the pointer's resting position from
+            // being read as a choice the instant the ring appears.
+            if (!_holdArmed && Environment.TickCount64 - _holdSince >= Math.Max(0, _config.HoldThresholdMs))
+            {
+                _holdArmed = true;
+            }
+
+            if (_holdArmed) TrackCursor();
+            return;
+        }
+
+        // Released after a tap: leave the ring up to be clicked.
+        if (!_holdArmed)
+        {
+            _holdTimer.Stop();
+            return;
+        }
+
+        // Letting go of any part of the combo ends the gesture, which is what
+        // makes releasing feel like one motion rather than a sequence. Running
+        // the action right here would be a mistake though: a Keys action fired
+        // while the other half of the combo is still physically down arrives at
+        // the target window with those modifiers folded in, so Ctrl+C sent out
+        // of Ctrl+Alt+Space lands as Ctrl+Alt+C. Wait for the hand to leave the
+        // keyboard first.
+        _holdReleased = true;
+        _holdReleasedAt = Environment.TickCount64;
+    }
+
+    /// <summary>Whether every key in the combo is still physically down.</summary>
+    private bool IsComboFullyDown() =>
+        NativeMethods.IsKeyDown(KeyInterop.VirtualKeyFromKey(_holdKey)) && ComboModifiers().All(NativeMethods.IsKeyDown);
+
+    /// <summary>Whether any part of the combo is still physically down.</summary>
+    private bool AnyComboKeyDown() =>
+        NativeMethods.IsKeyDown(KeyInterop.VirtualKeyFromKey(_holdKey)) || ComboModifiers().Any(NativeMethods.IsKeyDown);
+
+    /// <summary>
+    /// The virtual keys behind the combo's modifiers. Left and right Windows are
+    /// separate keys with no combined code, so whichever one is pressed decides -
+    /// hence the pick rather than a fixed list.
+    /// </summary>
+    private IEnumerable<int> ComboModifiers()
+    {
+        if (_holdModifiers.HasFlag(ModifierKeys.Control)) yield return NativeMethods.VK_CONTROL;
+        if (_holdModifiers.HasFlag(ModifierKeys.Alt)) yield return NativeMethods.VK_MENU;
+        if (_holdModifiers.HasFlag(ModifierKeys.Shift)) yield return NativeMethods.VK_SHIFT;
+        if (_holdModifiers.HasFlag(ModifierKeys.Windows))
+        {
+            yield return NativeMethods.IsKeyDown(NativeMethods.VK_RWIN)
+                ? NativeMethods.VK_RWIN
+                : NativeMethods.VK_LWIN;
+        }
+    }
+
+    /// <summary>
+    /// Reads the cursor from the system rather than from mouse events, because
+    /// the wedges don't stop at the window's edge in spirit and a quick flick
+    /// leaves it behind. WPF only delivers moves over the window, so the poll
+    /// keeps aiming honest even when the pointer has shot well past the ring.
+    /// </summary>
+    private void TrackCursor()
+    {
+        if (!NativeMethods.GetCursorPos(out var cursor)) return;
+
+        UpdateHover(Surface.PointFromScreen(new Point(cursor.X, cursor.Y)));
+    }
+
     // ---- hit testing ----------------------------------------------------
 
-    private static int HitNearest(Point p, List<RingButton> buttons)
+    /// <summary>
+    /// Resolves a point to whatever it is aiming at.
+    ///
+    /// The drawn circles are not the targets: each button owns the entire wedge
+    /// of the plane it sits in, from the hub out to the edge of the window. A
+    /// radial menu is meant to be worked by direction - shove the pointer up and
+    /// the top item is chosen - and asking for a hit on a 46-pixel circle throws
+    /// that away. Only the hub keeps a circular target, because it means cancel
+    /// and shouldn't be reachable by flinging the mouse anywhere in particular.
+    /// </summary>
+    private void UpdateHover(Point p)
     {
-        var best = None;
-        var bestDistance = double.MaxValue;
+        if (_buttons.Count == 0) return;
 
-        for (var i = 0; i < buttons.Count; i++)
+        if (RingLayout.IsWithin(p, _ringCenter, _hubRadius))
         {
-            if (!RingLayout.IsWithin(p, buttons[i].Center, buttons[i].Radius)) continue;
-
-            var d = RingLayout.Distance(p, buttons[i].Center);
-            if (d < bestDistance)
-            {
-                bestDistance = d;
-                best = i;
-            }
+            SetHover(HubIndex, None, None);
+            return;
         }
 
-        return best;
+        var angle = RingLayout.AngleAt(_ringCenter, p);
+
+        // Past the halfway line between the two orbits, an open group's children
+        // own the arc they fan across. Everything else out there stays with the
+        // parent, so overshooting the fan doesn't collapse the group mid-reach.
+        if (_openGroup != None
+            && _groups.TryGetValue(_openGroup, out var open)
+            && RingLayout.Distance(p, _ringCenter) >= (_orbit + _subOrbit) / 2)
+        {
+            var child = RingLayout.NearestAngle(angle, open.Angles, open.HalfStep);
+            SetHover(_openGroup, child, _openGroup);
+            return;
+        }
+
+        var index = RingLayout.SectorIndex(angle, _buttons.Count);
+        SetHover(index, None, _buttons[index].Action.IsGroup ? index : None);
     }
 
-    private void OnMouseMove(object sender, MouseEventArgs e)
-    {
-        var p = e.GetPosition(Surface);
-
-        var hovered = None;
-        var hoveredChild = None;
-        var openGroup = _openGroup;
-
-        // Children of the expanded group win: they sit on the outer orbit and
-        // are drawn on top, so they should claim the cursor first.
-        if (_openGroup != None && _groups.TryGetValue(_openGroup, out var open))
-        {
-            hoveredChild = HitNearest(p, open.Children);
-            if (hoveredChild != None) hovered = _openGroup;
-        }
-
-        if (hoveredChild == None)
-        {
-            var top = HitNearest(p, _buttons);
-            if (top != None)
-            {
-                hovered = top;
-                openGroup = _buttons[top].Action.IsGroup ? top : None;
-            }
-            else if (RingLayout.IsWithin(p, _ringCenter, _hubRadius))
-            {
-                hovered = HubIndex;
-                openGroup = None;
-            }
-            // Hovering nothing deliberately leaves openGroup alone: the gap
-            // between the two orbits has to be crossable without the children
-            // vanishing mid-reach.
-        }
-
-        SetHover(hovered, hoveredChild, openGroup);
-    }
+    private void OnMouseMove(object sender, MouseEventArgs e) =>
+        UpdateHover(e.GetPosition(Surface));
 
     // ---- hover state ----------------------------------------------------
 
@@ -809,7 +996,18 @@ public partial class RingWindow : Window
 
     // ---- invoking -------------------------------------------------------
 
-    private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+        InvokeHovered(closeOnMiss: false);
+
+    /// <summary>
+    /// Runs whatever is currently under the pointer.
+    ///
+    /// <paramref name="closeOnMiss"/> separates the two ways in. A click that
+    /// lands on nothing runnable should leave the ring alone to be clicked again;
+    /// letting go of the hotkey is the end of the gesture either way, so there is
+    /// nothing left to aim with and the ring closes.
+    /// </summary>
+    private void InvokeHovered(bool closeOnMiss)
     {
         if (_hoveredChild != None && _groups.TryGetValue(_openGroup, out var group))
         {
@@ -821,9 +1019,11 @@ public partial class RingWindow : Window
         {
             var action = _buttons[_hovered].Action;
 
-            // A pure group isn't clickable - it's already showing its children,
-            // and dismissing the ring here would be the opposite of helpful.
+            // A pure group isn't runnable - it's already showing its children,
+            // and dismissing the ring on a click here would be the opposite of
+            // helpful.
             if (action.IsClickable) Invoke(action);
+            else if (closeOnMiss) Hide();
             return;
         }
 

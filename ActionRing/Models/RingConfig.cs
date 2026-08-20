@@ -60,6 +60,19 @@ public sealed class RingConfig
     /// <summary>Global hotkey, e.g. "Ctrl+Alt+Space".</summary>
     public string HotKey { get; set; } = "Ctrl+Alt+Space";
 
+    /// <summary>
+    /// Keep the hotkey held, move onto an item, let go: the item runs. Tapping
+    /// the hotkey instead leaves the ring up to be clicked, as before.
+    /// </summary>
+    public bool HoldToActivate { get; set; } = true;
+
+    /// <summary>
+    /// How long the hotkey has to stay down before a press counts as a hold
+    /// rather than a tap. Short enough not to feel like a wait, long enough that
+    /// an ordinary press-and-release never arms the gesture by accident.
+    /// </summary>
+    public int HoldThresholdMs { get; set; } = 180;
+
     /// <summary>Radius of each round action button, in DIPs.</summary>
     public double ButtonRadius { get; set; } = 23;
 

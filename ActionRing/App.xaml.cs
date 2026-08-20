@@ -18,6 +18,11 @@ public partial class App : System.Windows.Application
     private RingWindow? _ring;
     private RingConfig _config = new();
 
+    // The combo the ring is currently bound to. The hold gesture has to know
+    // which keys to watch for a release, and WM_HOTKEY doesn't say.
+    private System.Windows.Input.ModifierKeys _hotKeyModifiers;
+    private System.Windows.Input.Key _hotKeyKey;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -159,6 +164,9 @@ public partial class App : System.Windows.Application
             key = System.Windows.Input.Key.Space;
         }
 
+        _hotKeyModifiers = modifiers;
+        _hotKeyKey = key;
+
         if (!_hotKeys.Register(modifiers, key))
         {
             Warn($"Another app already owns {_config.HotKey}. Pick a different one in " +
@@ -166,7 +174,7 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void OnHotKey() => Ring().Toggle();
+    private void OnHotKey() => Ring().Toggle(_hotKeyModifiers, _hotKeyKey);
 
     private static void Warn(string message) =>
         System.Windows.MessageBox.Show(message, "Action Ring",

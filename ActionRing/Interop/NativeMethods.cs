@@ -79,6 +79,23 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr GetModuleHandle(string? lpModuleName);
 
+    // ---- key state -----------------------------------------------------
+    // A registered hotkey only reports the press, never the release, so the
+    // hold gesture has to ask the keyboard directly whether the combo is still
+    // down. Async state is what we want here: it reflects the physical keys
+    // right now rather than the state at the message being processed.
+    public const int VK_SHIFT = 0x10;
+    public const int VK_CONTROL = 0x11;
+    public const int VK_MENU = 0x12;
+    public const int VK_LWIN = 0x5B;
+    public const int VK_RWIN = 0x5C;
+
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    /// <summary>True while the physical key is held.</summary>
+    public static bool IsKeyDown(int vKey) => (GetAsyncKeyState(vKey) & 0x8000) != 0;
+
     // ---- cursor --------------------------------------------------------
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
