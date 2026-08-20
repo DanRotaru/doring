@@ -1,0 +1,1 @@
+dotnet publish ActionRing -c Release
