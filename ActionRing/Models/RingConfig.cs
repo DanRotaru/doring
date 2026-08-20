@@ -151,13 +151,24 @@ public sealed class RingConfig
 
     public void Save()
     {
+        TrySave(out _);
+    }
+
+    /// <summary>Save and report failures to callers that have a UI to show them.</summary>
+    public bool TrySave(out string? error)
+    {
         try
         {
             File.WriteAllText(ConfigPath, JsonSerializer.Serialize(this, JsonOptions));
+            error = null;
+            return true;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            // Read-only location (e.g. run from a network share) — not fatal.
+            // Startup remains tolerant through Save(); the settings window can
+            // use this overload to avoid pretending a failed write succeeded.
+            error = exception.Message;
+            return false;
         }
     }
 

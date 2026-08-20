@@ -16,6 +16,7 @@ public partial class App : System.Windows.Application
     private HotKeyManager? _hotKeys;
     private NotifyIcon? _tray;
     private RingWindow? _ring;
+    private SettingsWindow? _settings;
     private RingConfig _config = new();
 
     // The combo the ring is currently bound to. The hold gesture has to know
@@ -52,6 +53,10 @@ public partial class App : System.Windows.Application
         if (e.Args.Any(a => string.Equals(a, "--show", StringComparison.OrdinalIgnoreCase)))
         {
             Ring().ShowRing();
+        }
+        else if (e.Args.Any(a => string.Equals(a, "--settings", StringComparison.OrdinalIgnoreCase)))
+        {
+            ShowSettings();
         }
     }
 
@@ -104,8 +109,9 @@ public partial class App : System.Windows.Application
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show ring", null, (_, _) => Ring().ShowRing());
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Edit actions...", null, (_, _) => OpenConfig());
-        menu.Items.Add("Reload config", null, (_, _) => ReloadConfig());
+        menu.Items.Add("Settings...", null, (_, _) => ShowSettings());
+        menu.Items.Add("Edit JSON...", null, (_, _) => OpenConfig());
+        menu.Items.Add("Reload settings", null, (_, _) => ReloadConfig());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Shutdown());
 
@@ -132,6 +138,37 @@ public partial class App : System.Windows.Application
     }
 
     // ---- config ---------------------------------------------------------
+
+    private void ShowSettings()
+    {
+        if (_settings is not null)
+        {
+            if (_settings.WindowState == WindowState.Minimized) _settings.WindowState = WindowState.Normal;
+            _settings.Activate();
+            return;
+        }
+
+        _settings = new SettingsWindow(_config, SaveFromSettings);
+        _settings.Closed += (_, _) =>
+        {
+            _settings = null;
+            ScheduleTrim(TimeSpan.FromSeconds(2));
+        };
+        _settings.Show();
+        _settings.Activate();
+    }
+
+    private string? SaveFromSettings(RingConfig config)
+    {
+        if (!config.TrySave(out var error))
+            return $"Could not save settings: {error ?? "Unknown file error."}";
+
+        _config = config;
+        _ring?.Apply(_config);
+        if (_tray is not null) _tray.Text = $"Action Ring  -  {_config.HotKey}";
+        RegisterHotKey();
+        return null;
+    }
 
     private void OpenConfig()
     {

@@ -46,11 +46,28 @@ doesn't support WPF either. The only real lever is dropping `SelfContained`, whi
 gets you a sub-megabyte exe but requires the .NET Desktop Runtime on every machine
 you copy it to.
 
-## Configuring actions
+## Settings
+
+Right-click the tray icon and choose **Settings...** to configure the shortcut,
+gesture behaviour, appearance, and the actions around the ring. The Actions page
+supports adding, deleting, reordering, and grouping actions. Changes are validated,
+saved, and applied immediately; hardware acceleration is the one setting that needs
+an app restart.
+
+The settings window still writes the portable `actionring.json` beside the exe.
+Choose **Edit JSON...** from the tray menu if you want to edit that file directly,
+then choose **Reload settings**.
+
+You can also open the settings window directly while debugging:
+
+```
+ActionRing.exe --settings
+```
+
+## JSON reference
 
 On first run the app writes `actionring.json` next to the exe (kept beside the
-binary so the whole thing stays portable). Edit it, then choose **Reload config**
-from the tray menu.
+binary so the whole thing stays portable).
 
 ```jsonc
 {
@@ -265,6 +282,5 @@ the choice, stops tracking the cursor, and waits for the keyboard to clear (capp
 ## Ideas not built yet
 
 - Nested rings — a button that opens a sub-ring
-- A settings UI, so `actionring.json` isn't the only editor
 - Per-app rings, keyed off the foreground window's process name
 - Start-with-Windows toggle (a shortcut in `shell:startup`)
