@@ -22,18 +22,18 @@ public sealed record ActionPreset(RingAction Action)
 {
     public string IconText => Action.Kind == ActionKind.Command && Action.Target == "Volume"
         ? "\uE995" // Volume3 in the catalog; the ring itself shows the live number.
-        : Action.ScrollBehavior == ScrollBehavior.Brightness
-            ? "\uE706" // Brightness in the catalog; the ring itself shows the live number.
-            : Action.Glyph;
+        : Action.Glyph;
 
     public string Subtitle => Action.Label == "Open App/File/Folder"
         ? "Open any app, file or folder"
+        : Action.Label == "Keyboard Shortcut"
+            ? "Run any keyboard shortcut"
+        : Action.Label == "Paste Text"
+            ? "Paste any saved text instantly"
         : Action.Target == "ActionRingSettings"
             ? "Open Action Ring settings"
         : Action.Target == "WindowsSettings"
             ? "Open Windows settings"
-        : Action.ScrollBehavior == ScrollBehavior.Brightness
-            ? "Control Brightness with the mouse scroll"
         : Action.Target;
 }
 
@@ -641,13 +641,11 @@ public partial class SettingsWindow : Window
         ], "Manage windows, desktops, screenshots, and display layout."),
         new("SYSTEM",
         [
-            Preset("Brightness control", "\uE706", ActionKind.Command, "BrightnessUp", scroll: ScrollBehavior.Brightness),
-            Preset("Lock Windows", "", ActionKind.Keys, "Win+L"),
             Preset("Quick settings", "", ActionKind.Keys, "Win+A"),
             Preset("Search", "", ActionKind.Keys, "Win+S"),
             Preset("Project display", "", ActionKind.Keys, "Win+P"),
             Preset("Accessibility", "", ActionKind.Keys, "Win+U"),
-        ], "Control brightness and access common Windows system features."),
+        ], "Access common Windows system features."),
         new("MOUSE",
         [
             Preset("Move mouse cursor", "\uE962", ActionKind.MousePosition, "0, 0"),
@@ -812,7 +810,7 @@ public partial class SettingsWindow : Window
 
         if (_expandedGroup is not null && !Actions.Contains(_expandedGroup)) _expandedGroup = null;
 
-        var rawButtonRadius = DesignerNumber(ButtonRadiusBox?.Text, 23);
+        var rawButtonRadius = DesignerNumber(ButtonRadiusBox?.Text, 25);
         var rawOrbit = RingLayout.ResolveOrbit(DesignerNumber(OrbitRadiusBox?.Text, 60), rawButtonRadius, count);
         var rawSubRadius = rawButtonRadius * 0.76;
         var rawSubOrbit = rawOrbit + rawButtonRadius + rawSubRadius + 8;
@@ -822,7 +820,7 @@ public partial class SettingsWindow : Window
         var orbit = rawOrbit * scale;
         var subRadius = rawSubRadius * scale;
         var subOrbit = rawSubOrbit * scale;
-        var hubRadius = Math.Max(10, DesignerNumber(HubRadiusBox?.Text, 16) * scale);
+        var hubRadius = Math.Max(10, DesignerNumber(HubRadiusBox?.Text, 18) * scale);
         var tint = AcrylicBrushes.ParseColor(TintBox?.Text, Color.FromRgb(0x26, 0x26, 0x2E));
         var globalAccent = AcrylicBrushes.ParseColor(AccentBox?.Text, Color.FromRgb(0x5C, 0x7C, 0xFA));
         var tintBrush = new SolidColorBrush(tint) { Opacity = TintOpacitySlider?.Value ?? 0.9 };
@@ -900,6 +898,7 @@ public partial class SettingsWindow : Window
         }
 
         var hub = CreateDesignerHub(hubRadius, tintBrush);
+        hub.MouseLeftButtonUp += DesignerHub_MouseLeftButtonUp;
         Canvas.SetLeft(hub, centreX - hubRadius);
         Canvas.SetTop(hub, centreY - hubRadius);
         RingDesignerCanvas.Children.Add(hub);
@@ -968,15 +967,6 @@ public partial class SettingsWindow : Window
                 Foreground = new SolidColorBrush(Color.FromArgb(0xEE, 255, 255, 255)),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
-        else if (action.ScrollBehavior == ScrollBehavior.Brightness)
-            host.Children.Add(new TextBlock
-            {
-                Text = SystemBrightness.GetPercent().ToString(),
-                FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
-                FontSize = radius * 0.62, FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xEE, 255, 255, 255)),
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            });
         else
             host.Children.Add(new TextBlock
             {
@@ -1001,7 +991,13 @@ public partial class SettingsWindow : Window
 
     private static Grid CreateDesignerHub(double radius, Brush tintBrush)
     {
-        var host = new Grid { Width = radius * 2, Height = radius * 2, IsHitTestVisible = false };
+        var host = new Grid
+        {
+            Width = radius * 2,
+            Height = radius * 2,
+            Cursor = Cursors.Hand,
+            ToolTip = "Clear selection",
+        };
         host.Children.Add(new System.Windows.Shapes.Ellipse
         {
             Fill = tintBrush, Stroke = new SolidColorBrush(Color.FromArgb(0x24, 255, 255, 255)), StrokeThickness = 1,
@@ -1018,6 +1014,12 @@ public partial class SettingsWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         return host;
+    }
+
+    private void DesignerHub_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        DeselectRingAction();
+        e.Handled = true;
     }
 
     private static Border CreateDesignerPill(string text, Brush tintBrush) => new()
@@ -1344,7 +1346,7 @@ public partial class SettingsWindow : Window
         index = Math.Clamp(index, 0, topTargets.Count);
         var newCount = topTargets.Count + 1;
 
-        var rawRadius = DesignerNumber(ButtonRadiusBox?.Text, 23);
+        var rawRadius = DesignerNumber(ButtonRadiusBox?.Text, 25);
         var rawOrbit = RingLayout.ResolveOrbit(DesignerNumber(OrbitRadiusBox?.Text, 60), rawRadius, newCount);
         var scale = Math.Min(1.2, 118 / Math.Max(1, rawOrbit + rawRadius));
         var radius = rawRadius * scale;

@@ -56,8 +56,7 @@ public partial class RingWindow : Window
     private const double ShadowMargin = 18;  // room for the buttons' drop shadows
     private const double HoverScale = 1.12;
     private const double OpenFrom = 0.86;    // scale the ring grows from
-    private const double DimmedSibling = 0.8; // buttons outside the open group
-    private const double FadedSibling = 0.12; // ...when "fade others" is on
+    private const double FadedSibling = 0.8; // buttons outside the open group
     private const double SubScale = 0.76;    // child button size, relative to a parent
     private const double SubGap = 8;         // clearance between the two orbits
     private const double LabelGap = 10;      // button edge to its label
@@ -341,11 +340,6 @@ public partial class RingWindow : Window
         {
             return CreateLevelVisual(SystemVolume.GetPercent(), "VolumeValue", radius);
         }
-        if (action.ScrollBehavior == ScrollBehavior.Brightness)
-        {
-            return CreateLevelVisual(SystemBrightness.GetPercent(), "BrightnessValue", radius);
-        }
-
         if (action.IconKind == ActionIconKind.AppIcon && TryLoadIcon(action.IconPath, radius, out var source))
         {
             return new Image
@@ -923,7 +917,7 @@ public partial class RingWindow : Window
     /// The drawn circles are not the targets: each button owns the entire wedge
     /// of the plane it sits in, from the hub out to the edge of the window. A
     /// radial menu is meant to be worked by direction - shove the pointer up and
-    /// the top item is chosen - and asking for a hit on a 46-pixel circle throws
+    /// the top item is chosen - and asking for a hit on a 50-pixel circle throws
     /// that away. Only the hub keeps a circular target, because it means cancel
     /// and shouldn't be reachable by flinging the mouse anywhere in particular.
     /// </summary>
@@ -979,12 +973,12 @@ public partial class RingWindow : Window
             var on = i == hovered && hoveredChild == None;
             Emphasise(_buttons[i], on);
 
-            // Pull focus toward the open group by holding the rest back - but
-            // only slightly by default, since fading them hard makes the ring
-            // look broken. Some people want exactly that, hence the option.
-            var dimmed = _config.FadeOthersOnGroupOpen ? FadedSibling : DimmedSibling;
+            // Leave siblings untouched when disabled. The option subtly fades
+            // them to pull focus toward the open group.
             _buttons[i].Host.Opacity =
-                openGroup != None && i != openGroup ? dimmed : 1.0;
+                _config.FadeOthersOnGroupOpen && openGroup != None && i != openGroup
+                    ? FadedSibling
+                    : 1.0;
         }
 
         foreach (var (parentIndex, group) in _groups)
@@ -1092,8 +1086,9 @@ public partial class RingWindow : Window
             action = _buttons[_hovered].Action;
 
         if (action is null || action.ScrollBehavior == ScrollBehavior.None) return;
+
         ActionRunner.RunScroll(action, e.Delta);
-        if (action.ScrollBehavior is ScrollBehavior.Volume or ScrollBehavior.Brightness) UpdateLevelDisplays();
+        UpdateLevelDisplays();
         e.Handled = true;
     }
 
@@ -1101,17 +1096,14 @@ public partial class RingWindow : Window
     {
         var all = _buttons.Concat(_groups.Values.SelectMany(group => group.Children)).ToArray();
         var hasVolume = all.Any(button => button.Icon is TextBlock { Tag: "VolumeValue" });
-        var hasBrightness = all.Any(button => button.Icon is TextBlock { Tag: "BrightnessValue" });
         var volume = hasVolume ? SystemVolume.GetPercent().ToString() : null;
-        var brightness = hasBrightness ? SystemBrightness.GetPercent().ToString() : null;
         foreach (var button in all)
-            UpdateLevelDisplay(button, volume, brightness);
+            UpdateLevelDisplay(button, volume);
     }
 
-    private static void UpdateLevelDisplay(RingButton button, string? volume, string? brightness)
+    private static void UpdateLevelDisplay(RingButton button, string? volume)
     {
         if (volume is not null && button.Icon is TextBlock { Tag: "VolumeValue" } text) text.Text = volume;
-        else if (brightness is not null && button.Icon is TextBlock { Tag: "BrightnessValue" } brightnessText) brightnessText.Text = brightness;
     }
 
     /// <summary>

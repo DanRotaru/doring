@@ -75,9 +75,9 @@ binary so the whole thing stays portable).
   "HotKey": "Ctrl+Alt+Space",
   "HoldToActivate": true,  // hold the hotkey, move onto an item, release to run it
   "HoldThresholdMs": 180,  // how long a press must last to count as a hold, not a tap
-  "ButtonRadius": 23,      // size of each round button, in DIPs
+  "ButtonRadius": 25,      // size of each round button, in DIPs
   "OrbitRadius": 60,       // centre-to-button distance; grown if buttons won't fit
-  "HubRadius": 16,         // the centre dismiss button
+  "HubRadius": 18,         // the centre dismiss button
   "ShowLabels": true,      // name the hovered action on a pill below the ring
   "Tint": "#26262E",
   "TintOpacity": 0.9,      // lower = more see-through

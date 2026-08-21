@@ -29,11 +29,36 @@ public enum ActionKind
     Clipboard,
 }
 
+[JsonConverter(typeof(ScrollBehaviorJsonConverter))]
 public enum ScrollBehavior
 {
     None,
     Volume,
-    Brightness,
+}
+
+/// <summary>
+/// Keeps configs written by versions that offered brightness scrolling
+/// loadable. The removed value, and any other unknown value, becomes None.
+/// </summary>
+public sealed class ScrollBehaviorJsonConverter : JsonConverter<ScrollBehavior>
+{
+    public override ScrollBehavior Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+            return string.Equals(reader.GetString(), nameof(ScrollBehavior.Volume), StringComparison.OrdinalIgnoreCase)
+                ? ScrollBehavior.Volume
+                : ScrollBehavior.None;
+
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var value))
+            return value == (int)ScrollBehavior.Volume ? ScrollBehavior.Volume : ScrollBehavior.None;
+
+        throw new JsonException("ScrollBehavior must be a string or number.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScrollBehavior value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value == ScrollBehavior.Volume
+            ? nameof(ScrollBehavior.Volume)
+            : nameof(ScrollBehavior.None));
 }
 
 public enum ActionIconKind
@@ -106,7 +131,7 @@ public sealed class RingConfig
     public int HoldThresholdMs { get; set; } = 180;
 
     /// <summary>Radius of each round action button, in DIPs.</summary>
-    public double ButtonRadius { get; set; } = 23;
+    public double ButtonRadius { get; set; } = 25;
 
     /// <summary>
     /// Distance from the centre to each button's centre. Grown automatically if
@@ -115,16 +140,15 @@ public sealed class RingConfig
     public double OrbitRadius { get; set; } = 60;
 
     /// <summary>Radius of the centre dismiss button.</summary>
-    public double HubRadius { get; set; } = 16;
+    public double HubRadius { get; set; } = 18;
 
     /// <summary>Show the hovered action's name on a pill below the ring.</summary>
     public bool ShowLabels { get; set; } = true;
 
     /// <summary>
-    /// When a group fans open, fade its siblings almost all the way out instead
-    /// of holding them back slightly, so only the open group reads.
+    /// When a group fans open, slightly fade its siblings to emphasize the group.
     /// </summary>
-    public bool FadeOthersOnGroupOpen { get; set; } = false;
+    public bool FadeOthersOnGroupOpen { get; set; } = true;
 
     /// <summary>Base tint of the acrylic surface.</summary>
     public string Tint { get; set; } = "#26262E";
@@ -173,7 +197,11 @@ public sealed class RingConfig
             {
                 var json = File.ReadAllText(ConfigPath);
                 var loaded = JsonSerializer.Deserialize<RingConfig>(json, JsonOptions);
-                if (loaded is { Actions.Count: > 0 }) return loaded;
+                if (loaded is not null)
+                {
+                    RemoveRetiredBrightnessActions(loaded.Actions);
+                    if (loaded.Actions.Count > 0) return loaded;
+                }
             }
         }
         catch (Exception)
@@ -185,6 +213,17 @@ public sealed class RingConfig
         var defaults = CreateDefault();
         defaults.Save();
         return defaults;
+    }
+
+    private static void RemoveRetiredBrightnessActions(List<RingAction> actions)
+    {
+        actions.RemoveAll(action =>
+            action.Kind == ActionKind.Command &&
+            (string.Equals(action.Target, "BrightnessUp", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(action.Target, "BrightnessDown", StringComparison.OrdinalIgnoreCase)));
+
+        foreach (var action in actions)
+            RemoveRetiredBrightnessActions(action.Items);
     }
 
     public void Save()

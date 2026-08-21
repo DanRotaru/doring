@@ -291,33 +291,4 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
-    // ---- monitor brightness (DDC/CI) ----------------------------------
-    public delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct PHYSICAL_MONITOR
-    {
-        public IntPtr Handle;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string Description;
-    }
-
-    [DllImport("user32.dll")]
-    public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clipRect, MonitorEnumProc callback, IntPtr data);
-
-    [DllImport("dxva2.dll", SetLastError = true)]
-    public static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(IntPtr monitor, out uint count);
-
-    [DllImport("dxva2.dll", SetLastError = true)]
-    public static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr monitor, uint count,
-        [Out] PHYSICAL_MONITOR[] physicalMonitors);
-
-    [DllImport("dxva2.dll", SetLastError = true)]
-    public static extern bool GetMonitorBrightness(IntPtr monitor, out uint minimum, out uint current, out uint maximum);
-
-    [DllImport("dxva2.dll", SetLastError = true)]
-    public static extern bool SetMonitorBrightness(IntPtr monitor, uint brightness);
-
-    [DllImport("dxva2.dll", SetLastError = true)]
-    public static extern bool DestroyPhysicalMonitors(uint count, PHYSICAL_MONITOR[] physicalMonitors);
 }

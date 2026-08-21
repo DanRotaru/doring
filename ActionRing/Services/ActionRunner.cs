@@ -80,8 +80,6 @@ public static class ActionRunner
         if (delta == 0) return;
         if (action.ScrollBehavior == ScrollBehavior.Volume)
             SystemVolume.Change(delta > 0 ? 2 : -2);
-        else if (action.ScrollBehavior == ScrollBehavior.Brightness)
-            SystemBrightness.Change(delta > 0 ? 10 : -10);
     }
 
     private static void RestoreFocus(IntPtr restoreTo)
@@ -103,8 +101,6 @@ public static class ActionRunner
             case "VolumeUp": SendVirtualKey(0xAF); break;
             case "VolumeDown": SendVirtualKey(0xAE); break;
             case "Volume": break; // Display/scroll-only action.
-            case "BrightnessUp": SystemBrightness.Change(10); break;
-            case "BrightnessDown": SystemBrightness.Change(-10); break;
             case "MouseLeftClick": SendMouseButton(NativeMethods.MOUSEEVENTF_LEFTDOWN, NativeMethods.MOUSEEVENTF_LEFTUP); break;
             case "MouseRightClick": SendMouseButton(NativeMethods.MOUSEEVENTF_RIGHTDOWN, NativeMethods.MOUSEEVENTF_RIGHTUP); break;
             case "MouseMiddleClick": SendMouseButton(NativeMethods.MOUSEEVENTF_MIDDLEDOWN, NativeMethods.MOUSEEVENTF_MIDDLEUP); break;
