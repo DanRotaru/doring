@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -34,7 +34,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\ring.ico" />
+    <Resource Include="Assets\SimpleIcons.ttf" />
     <EmbeddedResource Include="Resources\segoe-fluent-icons-font.md" />
+    <EmbeddedResource Include="Resources\simple-icons.txt" />
+    <EmbeddedResource Include="Resources\emoji.txt" />
   </ItemGroup>
 
   <ItemGroup>

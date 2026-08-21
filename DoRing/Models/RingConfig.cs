@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -65,6 +65,12 @@ public enum ActionIconKind
 {
     Glyph,
     AppIcon,
+
+    /// <summary>A glyph from the bundled Simple Icons brand font.</summary>
+    SimpleIcon,
+
+    /// <summary>An emoji from the system emoji font.</summary>
+    Emoji,
 }
 
 public sealed class RingAction
@@ -80,6 +86,9 @@ public sealed class RingAction
 
     /// <summary>Path to an .ico/.png/image or executable when <see cref="IconKind"/> is AppIcon.</summary>
     public string IconPath { get; set; } = "";
+
+    /// <summary>Optional hex color for the glyph, e.g. "#FF5C7CFA". Overrides the brand color.</summary>
+    public string? IconColor { get; set; }
 
     public ActionKind Kind { get; set; } = ActionKind.Launch;
 
@@ -183,6 +192,12 @@ public sealed class RingConfig
     /// stride. Turn it on if you scale the ring up enough to notice.
     /// </summary>
     public bool HardwareAcceleration { get; set; } = false;
+
+    /// <summary>Draw Simple Icons glyphs in their brand color instead of the ring foreground.</summary>
+    public bool ColoredIcons { get; set; } = false;
+
+    /// <summary>Draw emoji in color. Off falls back to monochrome outlines.</summary>
+    public bool ColoredEmoji { get; set; } = true;
 
     public List<RingAction> Actions { get; set; } = new();
 
@@ -376,6 +391,7 @@ public sealed class RingConfig
         Glyph = action.Glyph,
         IconKind = action.IconKind,
         IconPath = action.IconPath,
+        IconColor = action.IconColor,
         Kind = action.Kind,
         Target = action.Target,
         Arguments = action.Arguments,

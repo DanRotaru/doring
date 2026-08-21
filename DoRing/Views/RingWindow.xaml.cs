@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using IOPath = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
@@ -54,6 +54,14 @@ public partial class RingWindow : Window
     private const int HubIndex = -2;
 
     private const double ShadowMargin = 18;  // room for the buttons' drop shadows
+
+    /// <summary>
+    /// How much breathing room the ring's outer edge keeps from the edge of the
+    /// work area. The window itself is allowed to hang off-screen past this:
+    /// the padding it carries for shadows and labels is empty space, and
+    /// clamping on it pushed the ring far inward when summoned near an edge.
+    /// </summary>
+    private const double EdgeGap = 6;
     private const double HoverScale = 1.12;
     private const double OpenFrom = 0.86;    // scale the ring grows from
     private const double FadedSibling = 0.8; // buttons outside the open group
@@ -83,6 +91,7 @@ public partial class RingWindow : Window
     private readonly Dictionary<int, SubGroup> _groups = new();
 
     private Point _ringCenter;
+    private double _ringExtent;
     private double _buttonRadius;
     private double _subRadius;
     private double _orbit;
@@ -231,6 +240,7 @@ public partial class RingWindow : Window
         Surface.Width = Width;
         Surface.Height = Height;
         _ringCenter = new Point(halfWidth, halfHeight);
+        _ringExtent = extent;
 
         Surface.Children.Add(CreateInputPad());
 
@@ -353,12 +363,27 @@ public partial class RingWindow : Window
             };
         }
 
+        if (action.IconKind == ActionIconKind.Emoji && _config.ColoredEmoji &&
+            ColorEmoji.Render(action.Glyph) is { } emoji)
+        {
+            return new Image
+            {
+                Source = emoji,
+                Width = radius * 1.05,
+                Height = radius * 1.05,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
         return new TextBlock
         {
             Text = action.Glyph,
-            FontFamily = (FontFamily)Resources["IconFont"],
+            FontFamily = IconFonts.For(action.IconKind),
             FontSize = radius * 0.82,
-            Foreground = new SolidColorBrush(Color.FromArgb(0xDE, 0xFF, 0xFF, 0xFF)),
+            Foreground = IconFonts.IconBrush(action.IconKind, action.Glyph, action.IconColor, _config.ColoredIcons)
+                         ?? new SolidColorBrush(Color.FromArgb(0xDE, 0xFF, 0xFF, 0xFF)),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -759,18 +784,30 @@ public partial class RingWindow : Window
             targetY = (info.rcWork.Top + info.rcWork.Bottom) / 2;
         }
 
+        // Clamp the ring's own bounds, not the window's. The window is padded
+        // out for drop shadows and label room, and clamping on that padding is
+        // what parked the ring a long way from the cursor near a screen edge.
+        var marginX = (int)Math.Round((_ringExtent + EdgeGap) * scaleX);
+        var marginY = (int)Math.Round((_ringExtent + EdgeGap) * scaleY);
+
+        targetX = ClampSpan(targetX, info.rcWork.Left + marginX, info.rcWork.Right - marginX);
+        targetY = ClampSpan(targetY, info.rcWork.Top + marginY, info.rcWork.Bottom - marginY);
+
         // Centre the *ring* on the target, not the window: the label strip hangs
         // below the ring and would otherwise pull it off-centre.
         var x = targetX - width / 2;
         var y = targetY - (int)Math.Round(_ringCenter.Y * scaleY);
 
-        // Keep it fully on-screen when summoned near an edge.
-        x = Math.Clamp(x, info.rcWork.Left, Math.Max(info.rcWork.Left, info.rcWork.Right - width));
-        y = Math.Clamp(y, info.rcWork.Top, Math.Max(info.rcWork.Top, info.rcWork.Bottom - height));
-
         NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST,
             x, y, width, height, NativeMethods.SWP_NOACTIVATE);
     }
+
+    /// <summary>
+    /// Clamps into [min, max], falling back to the midpoint when the ring is
+    /// wider than the work area and the range has inverted.
+    /// </summary>
+    private static int ClampSpan(int value, int min, int max) =>
+        min > max ? (min + max) / 2 : Math.Clamp(value, min, max);
 
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
     {

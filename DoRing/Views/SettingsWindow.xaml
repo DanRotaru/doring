@@ -1,7 +1,8 @@
-<Window x:Class="DoRing.Views.SettingsWindow"
+﻿<Window x:Class="DoRing.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DoRing.Views"
+        xmlns:services="clr-namespace:DoRing.Services"
         Title="DoRing"
         Width="980" Height="680" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
@@ -204,7 +205,7 @@
                                RenderOptions.BitmapScalingMode="HighQuality"
                                Visibility="{Binding UseAppImage, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding DisplayGlyph}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15"
+                                   FontFamily="{Binding GlyphFont}" Foreground="{Binding GlyphBrush}" FontSize="15"
                                    Visibility="{Binding UseDisplayGlyph, Converter={StaticResource BoolToVisibility}}" />
                     </Grid>
                 </Border>
@@ -402,6 +403,24 @@
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ColoredIconsCheck" Style="{StaticResource ToggleSwitch}"
+                                          IsChecked="{Binding Source={x:Static services:IconPreferences.Instance}, Path=Colored, Mode=TwoWay}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Colored icons" Style="{StaticResource SettingName}" /><Button x:Name="ResetColoredIcons" Tag="ColoredIcons" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Draw Simple Icons in their brand color instead of white." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ColoredEmojiCheck" Style="{StaticResource ToggleSwitch}"
+                                          IsChecked="{Binding Source={x:Static services:IconPreferences.Instance}, Path=ColoredEmoji, Mode=TwoWay}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Colored emoji" Style="{StaticResource SettingName}" /><Button x:Name="ResetColoredEmoji" Tag="ColoredEmoji" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Draw emoji in color instead of monochrome outlines." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <CheckBox x:Name="FadeOthersOnGroupOpenCheck" Style="{StaticResource ToggleSwitch}">
                                     <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Fade other actions with a group open" Style="{StaticResource SettingName}" /><Button x:Name="ResetFadeOthersOnGroupOpen" Tag="FadeOthersOnGroupOpen" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Show other actions at 80% opacity while a group is open." Style="{StaticResource Caption}" /></StackPanel>
                                 </CheckBox>
@@ -477,15 +496,17 @@
                                                  VerticalContentAlignment="Center" />
 
                                         <TextBlock Text="Icon source" FontWeight="SemiBold" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,7,0,12">
+                                        <WrapPanel Margin="0,7,0,12">
                                             <RadioButton Content="Glyph" GroupName="IconSource"
-                                                         IsChecked="{Binding UseGlyph, Mode=TwoWay}" Margin="0,0,20,0" />
-                                            <RadioButton Content="App icon" GroupName="IconSource"
-                                                         IsChecked="{Binding UseAppIcon, Mode=TwoWay}" />
-                                        </StackPanel>
+                                                         IsChecked="{Binding UseGlyph, Mode=TwoWay}" Margin="0,0,20,6" />
+                                            <RadioButton Content="Simple Icons" GroupName="IconSource"
+                                                         IsChecked="{Binding UseSimpleIcon, Mode=TwoWay}" Margin="0,0,20,6" />
+                                            <RadioButton Content="Custom Icon" GroupName="IconSource"
+                                                         IsChecked="{Binding UseAppIcon, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        </WrapPanel>
 
-                                        <StackPanel Visibility="{Binding UseGlyph, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
-                                            <TextBlock Text="Glyph" FontWeight="SemiBold" />
+                                        <StackPanel Visibility="{Binding UsesGlyphFont, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
+                                            <TextBlock Text="Icon" FontWeight="SemiBold" />
                                             <Border Margin="0,7,0,0" Padding="7" CornerRadius="7"
                                                     Background="#08000000" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                                 <StackPanel>
@@ -498,7 +519,7 @@
                                                                    Foreground="{StaticResource MutedBrush}" Margin="11,0,0,0"
                                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
                                                                    IsHitTestVisible="False" />
-                                                        <TextBlock x:Name="GlyphSearchPlaceholder" Text="Search glyphs"
+                                                        <TextBlock x:Name="GlyphSearchPlaceholder" Text="Search icons"
                                                                    Foreground="{StaticResource MutedBrush}" Margin="34,0,10,0"
                                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
                                                                    IsHitTestVisible="False" />
@@ -544,7 +565,14 @@
                                                                                         </Style.Triggers>
                                                                                     </Style>
                                                                                 </Button.Style>
-                                                                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" />
+                                                                                <Grid>
+                                                                                    <Image Source="{Binding Image}" Width="22" Height="22" Stretch="Uniform"
+                                                                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                                                                           Visibility="{Binding UseImage, Converter={StaticResource BoolToVisibility}}" />
+                                                                                    <TextBlock Text="{Binding Glyph}" FontFamily="{Binding Font}" Foreground="{Binding Foreground}" FontSize="18"
+                                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                               Visibility="{Binding UseText, Converter={StaticResource BoolToVisibility}}" />
+                                                                                </Grid>
                                                                             </Button>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
@@ -554,6 +582,11 @@
                                                     </ListBox>
                                                 </StackPanel>
                                             </Border>
+                                            <TextBlock Margin="2,7,0,0" TextWrapping="Wrap" Style="{StaticResource Caption}"
+                                                       Visibility="{Binding UseSimpleIcon, Converter={StaticResource BoolToVisibility}}">
+                                                <Run Text="Brand icons come from " /><Hyperlink NavigateUri="https://simpleicons.org/"
+                                                        RequestNavigate="AuthorLink_RequestNavigate">Simple Icons</Hyperlink><Run Text="." />
+                                            </TextBlock>
                                         </StackPanel>
                                         <StackPanel Visibility="{Binding UseAppIcon, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="App icon path" FontWeight="SemiBold" />

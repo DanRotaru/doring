@@ -99,6 +99,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     private string _glyph;
     private ActionIconKind _iconKind;
     private string _iconPath;
+    private string _iconColor;
     private ActionKind _kind;
     private string _target;
     private string _arguments;
@@ -114,6 +115,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Glyph = action.Glyph,
             IconKind = action.IconKind,
             IconPath = action.IconPath ?? "",
+            IconColor = action.IconColor,
             Kind = action.Kind,
             Target = action.Target,
             Arguments = action.Arguments,
@@ -125,6 +127,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         _glyph = action.Glyph;
         _iconKind = action.IconKind;
         _iconPath = action.IconPath ?? "";
+        _iconColor = action.IconColor ?? "";
         _kind = action.Kind;
         _target = action.Target;
         _arguments = action.Arguments;
@@ -142,10 +145,56 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
 
     public string Label { get => _label; set { _label = value; Changed(); Changed(nameof(DisplayLabel)); } }
     public string DisplayLabel => string.IsNullOrWhiteSpace(Label) ? "Unnamed action" : Label;
-    public string Glyph { get => _glyph; set { _glyph = value; Changed(); Changed(nameof(DisplayGlyph)); } }
+    public string Glyph
+    {
+        get => _glyph;
+        set
+        {
+            _glyph = value;
+            RefreshDisplayIcon();
+            Changed();
+            Changed(nameof(DisplayGlyph));
+            Changed(nameof(GlyphBrush));
+            Changed(nameof(DisplayIcon));
+            Changed(nameof(UseAppImage));
+            Changed(nameof(UseDisplayGlyph));
+        }
+    }
     public string DisplayGlyph => IconKind == ActionIconKind.AppIcon ? "" : Glyph;
+
+    /// <summary>The font <see cref="DisplayGlyph"/> has to be drawn with.</summary>
+    public FontFamily GlyphFont => IconFonts.For(IconKind);
+
+    /// <summary>The action's own icon color, or null when it uses the default.</summary>
+    public Brush? BrandBrush =>
+        IconFonts.IconBrush(IconKind, Glyph, IconColor, IconPreferences.Instance.Colored);
+
+    /// <summary>The icon color to draw with, falling back to the normal foreground.</summary>
+    public Brush GlyphBrush => BrandBrush ?? PlainGlyphBrush;
+
+    private static readonly Brush PlainGlyphBrush = CreatePlainGlyphBrush();
+
+    private static Brush CreatePlainGlyphBrush()
+    {
+        Brush brush = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
+        brush.Freeze();
+        return brush;
+    }
+
+    /// <summary>Re-reads the colored-icon preferences after they are toggled.</summary>
+    public void RefreshIconVisuals()
+    {
+        RefreshDisplayIcon();
+        Changed(nameof(BrandBrush));
+        Changed(nameof(GlyphBrush));
+        Changed(nameof(DisplayIcon));
+        Changed(nameof(UseAppImage));
+        Changed(nameof(UseDisplayGlyph));
+        foreach (var child in Children) child.RefreshIconVisuals();
+    }
     public ImageSource? DisplayIcon => _displayIcon;
-    public bool UseAppImage => IconKind == ActionIconKind.AppIcon && DisplayIcon is not null;
+    /// <summary>True when an image is drawn instead of a glyph: an app icon or a color emoji.</summary>
+    public bool UseAppImage => DisplayIcon is not null;
     public bool UseDisplayGlyph => !UseAppImage;
     public ActionIconKind IconKind
     {
@@ -157,7 +206,12 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Changed();
             Changed(nameof(UseGlyph));
             Changed(nameof(UseAppIcon));
+            Changed(nameof(UseSimpleIcon));
+            Changed(nameof(UseEmoji));
+            Changed(nameof(UsesGlyphFont));
             Changed(nameof(DisplayGlyph));
+            Changed(nameof(GlyphFont));
+            Changed(nameof(GlyphBrush));
             Changed(nameof(DisplayIcon));
             Changed(nameof(UseAppImage));
             Changed(nameof(UseDisplayGlyph));
@@ -166,6 +220,11 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     }
     public bool UseGlyph { get => IconKind == ActionIconKind.Glyph; set { if (value) IconKind = ActionIconKind.Glyph; } }
     public bool UseAppIcon { get => IconKind == ActionIconKind.AppIcon; set { if (value) IconKind = ActionIconKind.AppIcon; } }
+    public bool UseSimpleIcon { get => IconKind == ActionIconKind.SimpleIcon; set { if (value) IconKind = ActionIconKind.SimpleIcon; } }
+    public bool UseEmoji { get => IconKind == ActionIconKind.Emoji; set { if (value) IconKind = ActionIconKind.Emoji; } }
+
+    /// <summary>True for both font-backed icon sources, which share one picker.</summary>
+    public bool UsesGlyphFont => IconKind != ActionIconKind.AppIcon;
     public string IconPath
     {
         get => _iconPath;
@@ -177,6 +236,18 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Changed(nameof(DisplayIcon));
             Changed(nameof(UseAppImage));
             Changed(nameof(UseDisplayGlyph));
+        }
+    }
+    /// <summary>Optional hex color for this action's glyph. Blank means the default.</summary>
+    public string IconColor
+    {
+        get => _iconColor;
+        set
+        {
+            _iconColor = value;
+            Changed();
+            Changed(nameof(BrandBrush));
+            Changed(nameof(GlyphBrush));
         }
     }
     public ActionKind Kind { get => _kind; set { _kind = value; Changed(); NotifyKindProperties(); } }
@@ -226,6 +297,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         Glyph != _original.Glyph ||
         IconKind != _original.IconKind ||
         IconPath != (_original.IconPath ?? "") ||
+        IconColor != (_original.IconColor ?? "") ||
         Kind != _original.Kind ||
         Target != _original.Target ||
         Arguments != _original.Arguments ||
@@ -238,6 +310,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         Glyph = _original.Glyph;
         IconKind = _original.IconKind;
         IconPath = _original.IconPath ?? "";
+        IconColor = _original.IconColor ?? "";
         Kind = _original.Kind;
         Target = _original.Target;
         Arguments = _original.Arguments;
@@ -250,6 +323,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     {
         Label = Label.Trim(), Glyph = Glyph, IconKind = IconKind,
         IconPath = IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(IconPath) ? Target.Trim() : IconPath.Trim(),
+        IconColor = string.IsNullOrWhiteSpace(IconColor) ? null : IconColor.Trim(),
         Kind = Kind, Target = Target.Trim(),
         Arguments = Arguments.Trim(), ScrollBehavior = ScrollBehavior,
         Accent = string.IsNullOrWhiteSpace(Accent) ? null : Accent.Trim(),
@@ -259,6 +333,12 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     private void RefreshDisplayIcon()
     {
+        if (IconKind == ActionIconKind.Emoji)
+        {
+            _displayIcon = IconPreferences.Instance.ColoredEmoji ? ColorEmoji.Render(_glyph) : null;
+            return;
+        }
+
         var iconSource = string.IsNullOrWhiteSpace(_iconPath) ? _target : _iconPath;
         _displayIcon = IconKind == ActionIconKind.AppIcon &&
                        RingWindow.TryLoadIcon(iconSource, 20, out var source)
@@ -288,6 +368,41 @@ internal sealed class GlyphOption : INotifyPropertyChanged
     public required string Glyph { get; init; }
     public required string Name { get; init; }
     public required string SearchText { get; init; }
+
+    /// <summary>The font the glyph has to be drawn with in the picker.</summary>
+    public required FontFamily Font { get; init; }
+
+    /// <summary>Brand color, for Simple Icons only.</summary>
+    public Brush? Brand { get; init; }
+
+    public required ActionIconKind Kind { get; init; }
+
+    /// <summary>A color bitmap for emoji, when colored emoji are on.</summary>
+    public ImageSource? Image =>
+        Kind == ActionIconKind.Emoji && IconPreferences.Instance.ColoredEmoji
+            ? ColorEmoji.Render(Glyph)
+            : null;
+
+    public bool UseImage => Image is not null;
+    public bool UseText => !UseImage;
+
+    public Brush Foreground => GlyphCatalog.Colored && Brand is not null ? Brand : Plain;
+
+    private static readonly Brush Plain = CreatePlain();
+
+    private static Brush CreatePlain()
+    {
+        Brush brush = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
+        brush.Freeze();
+        return brush;
+    }
+
+    internal void NotifyAppearance()
+    {
+        foreach (var name in new[] { nameof(Foreground), nameof(Image), nameof(UseImage), nameof(UseText) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
     public bool IsSelected
     {
         get => _isSelected;
@@ -302,11 +417,64 @@ internal sealed class GlyphOption : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
-internal static partial class FluentGlyphs
+/// <summary>
+/// A searchable set of glyphs for one icon font. Two exist: the system Fluent
+/// icon font and the bundled Simple Icons brand font.
+/// </summary>
+internal sealed partial class GlyphCatalog
 {
-    public static IReadOnlyList<GlyphOption> All { get; } = Load();
+    public static GlyphCatalog Fluent { get; } = new(ActionIconKind.Glyph, LoadFluent);
+    public static GlyphCatalog SimpleIcons { get; } = new(ActionIconKind.SimpleIcon, LoadSimpleIcons);
+    public static GlyphCatalog Emoji { get; } = new(ActionIconKind.Emoji, LoadEmoji);
 
-    public static IReadOnlyList<GlyphOption[]> Filter(string? query)
+    private readonly Lazy<IReadOnlyList<GlyphOption>> _all;
+
+    private GlyphCatalog(ActionIconKind kind, Func<IReadOnlyList<GlyphOption>> load)
+    {
+        Kind = kind;
+        _all = new Lazy<IReadOnlyList<GlyphOption>>(load);
+    }
+
+    static GlyphCatalog() =>
+        IconPreferences.ColoredChanged += (_, _) =>
+        {
+            foreach (var option in SimpleIcons.All) option.NotifyAppearance();
+            foreach (var option in Emoji.All) option.NotifyAppearance();
+        };
+
+    public ActionIconKind Kind { get; }
+    public IReadOnlyList<GlyphOption> All => _all.Value;
+
+    /// <summary>Whether pickers draw Simple Icons in their brand color.</summary>
+    public static bool Colored => IconPreferences.Instance.Colored;
+
+    public static GlyphCatalog For(ActionIconKind kind) => kind switch
+    {
+        ActionIconKind.SimpleIcon => SimpleIcons,
+        ActionIconKind.Emoji => Emoji,
+        _ => Fluent,
+    };
+
+    /// <summary>Resolve every font up front so opening a picker never enumerates on demand.</summary>
+    public static void Warmup()
+    {
+        _ = Fluent.All;
+        _ = SimpleIcons.All;
+        _ = Emoji.All;
+    }
+
+    /// <summary>
+    /// Marks the chosen glyph in its own catalog and clears the other, so
+    /// switching icon source never leaves a stale highlight behind.
+    /// </summary>
+    public static void Select(ActionIconKind kind, string? glyph)
+    {
+        foreach (var catalog in new[] { Fluent, SimpleIcons })
+            foreach (var option in catalog.All)
+                option.IsSelected = catalog.Kind == kind && option.Glyph == glyph;
+    }
+
+    public IReadOnlyList<GlyphOption[]> Filter(string? query)
     {
         var terms = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return All
@@ -316,14 +484,9 @@ internal static partial class FluentGlyphs
             .ToArray();
     }
 
-    public static void Select(string? glyph)
+    private static IReadOnlyList<GlyphOption> LoadFluent()
     {
-        foreach (var option in All) option.IsSelected = option.Glyph == glyph;
-    }
-
-    private static IReadOnlyList<GlyphOption> Load()
-    {
-        var names = LoadNames();
+        var names = LoadFluentNames();
         var typeface = new Typeface(
             new FontFamily("Segoe Fluent Icons"),
             FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
@@ -343,12 +506,14 @@ internal static partial class FluentGlyphs
                     Glyph = char.ConvertFromUtf32(codePoint),
                     Name = name,
                     SearchText = $"{name} {keywords} {hex} U+{hex}",
+                    Font = IconFonts.Fluent,
+                    Kind = ActionIconKind.Glyph,
                 };
             })
             .ToArray();
     }
 
-    private static Dictionary<int, string> LoadNames()
+    private static Dictionary<int, string> LoadFluentNames()
     {
         var result = new Dictionary<int, string>();
         using var stream = Assembly.GetExecutingAssembly()
@@ -366,12 +531,66 @@ internal static partial class FluentGlyphs
         return result;
     }
 
-    [GeneratedRegex("\\|\\s*([a-fA-F0-9]{4,5})\\s*\\|\\s*:::no-loc text=\"([^\"]+)\"")]
+    /// <summary>
+    /// Emoji names come from the Unicode database (embedded as "CODEPOINT Name"
+    /// lines); the installed emoji font decides which of them can be drawn.
+    /// </summary>
+    private static IReadOnlyList<GlyphOption> LoadEmoji()
+    {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("DoRing.Resources.emoji.txt");
+        if (stream is null) return Array.Empty<GlyphOption>();
+
+        var typeface = new Typeface(IconFonts.Emoji, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        var available = typeface.TryGetGlyphTypeface(out var glyphTypeface)
+            ? glyphTypeface.CharacterToGlyphMap.Keys
+            : null;
+
+        var options = new List<GlyphOption>();
+        using var reader = new StreamReader(stream);
+        while (reader.ReadLine() is { } line)
+        {
+            var separator = line.IndexOf(' ');
+            if (separator <= 0) continue;
+            if (!int.TryParse(line.AsSpan(0, separator), NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture, out var codePoint)) continue;
+            if (available is not null && !available.Contains(codePoint)) continue;
+
+            var name = line[(separator + 1)..].Trim();
+            if (name.Length == 0) continue;
+            var hex = codePoint.ToString("X4", CultureInfo.InvariantCulture);
+            options.Add(new GlyphOption
+            {
+                Glyph = char.ConvertFromUtf32(codePoint),
+                Name = name,
+                SearchText = $"{name} {hex} U+{hex}",
+                Font = IconFonts.Emoji,
+                Kind = ActionIconKind.Emoji,
+            });
+        }
+        return options;
+    }
+
+    private static IReadOnlyList<GlyphOption> LoadSimpleIcons() =>
+        SimpleIconLibrary.All
+            .Select(entry => new GlyphOption
+            {
+                Glyph = entry.Glyph,
+                Name = entry.Slug,
+                SearchText = entry.Slug,
+                Font = IconFonts.SimpleIcons,
+                Kind = ActionIconKind.SimpleIcon,
+                Brand = SimpleIconLibrary.BrushFor(entry.Glyph),
+            })
+            .ToArray();
+
+    [GeneratedRegex(@"\|\s*([a-fA-F0-9]{4,5})\s*\|\s*:::no-loc text=""([^""]+)""")]
     private static partial Regex MetadataRowRegex();
 
     [GeneratedRegex(@"([a-z0-9])([A-Z])")]
     private static partial Regex WordBoundaryRegex();
 }
+
 
 public partial class SettingsWindow : Window
 {
@@ -418,6 +637,8 @@ public partial class SettingsWindow : Window
             SelectRingAction(action);
             ShowRingEditTab();
         };
+        RingDetailsEditor.ColorPickerRequested += (_, request) =>
+            OpenColorPicker(request.Anchor, request.Target);
         RingDetailsEditor.ChooseActionRequested += (_, _) =>
         {
             _replaceSelectedFromPicker = _selectedAction is not null;
@@ -426,7 +647,7 @@ public partial class SettingsWindow : Window
         // Resolve the installed icon font once while the window is being
         // created. Opening the picker then only shows an already-built,
         // virtualized six-column list instead of enumerating glyphs on demand.
-        _ = FluentGlyphs.All;
+        GlyphCatalog.Warmup();
         _save = save;
         _initialActions = config.Actions.Select(CloneAction).ToArray();
         Actions = new ObservableCollection<ActionItemViewModel>(
@@ -470,6 +691,8 @@ public partial class SettingsWindow : Window
         FadeOthersOnGroupOpenCheck.IsChecked = config.FadeOthersOnGroupOpen;
         SettingsOnCloseRightClickCheck.IsChecked = config.SettingsOnCloseRightClick;
         HardwareAccelerationCheck.IsChecked = config.HardwareAcceleration;
+        ColoredIconsCheck.IsChecked = config.ColoredIcons;
+        ColoredEmojiCheck.IsChecked = config.ColoredEmoji;
     }
 
     private void WatchGeneralChanges()
@@ -480,11 +703,16 @@ public partial class SettingsWindow : Window
 
         foreach (var check in new[] { HoldToActivateCheck, FollowCursorCheck,
                      ShowLabelsCheck, FadeOthersOnGroupOpenCheck, SettingsOnCloseRightClickCheck,
-                     HardwareAccelerationCheck })
+                     HardwareAccelerationCheck, ColoredIconsCheck, ColoredEmojiCheck })
         {
             check.Checked += (_, _) => UpdateResetButtons();
             check.Unchecked += (_, _) => UpdateResetButtons();
         }
+
+        // Either checkbox - appearance page or action editor - writes the same
+        // preference, so repaint the previews from the preference itself.
+        IconPreferences.ColoredChanged += ColoredIcons_Changed;
+        Closed += (_, _) => IconPreferences.ColoredChanged -= ColoredIcons_Changed;
 
         TintOpacitySlider.ValueChanged += (_, _) => UpdateResetButtons();
     }
@@ -505,6 +733,16 @@ public partial class SettingsWindow : Window
         ResetFadeOthersOnGroupOpen.Visibility = Changed(FadeOthersOnGroupOpenCheck.IsChecked == true, _defaults.FadeOthersOnGroupOpen);
         ResetSettingsOnCloseRightClick.Visibility = Changed(SettingsOnCloseRightClickCheck.IsChecked == true, _defaults.SettingsOnCloseRightClick);
         ResetHardwareAcceleration.Visibility = Changed(HardwareAccelerationCheck.IsChecked == true, _defaults.HardwareAcceleration);
+        ResetColoredIcons.Visibility = Changed(ColoredIconsCheck.IsChecked == true, _defaults.ColoredIcons);
+        ResetColoredEmoji.Visibility = Changed(ColoredEmojiCheck.IsChecked == true, _defaults.ColoredEmoji);
+    }
+
+    /// <summary>Repaints every preview that can show a brand-colored icon.</summary>
+    private void ColoredIcons_Changed(object? sender, EventArgs e)
+    {
+        foreach (var action in Actions) action.RefreshIconVisuals();
+        RenderRingDesigner();
+        UpdateResetButtons();
     }
 
     private static Visibility Changed(bool value, bool fallback) =>
@@ -544,6 +782,8 @@ public partial class SettingsWindow : Window
             case "FadeOthersOnGroupOpen": FadeOthersOnGroupOpenCheck.IsChecked = _defaults.FadeOthersOnGroupOpen; break;
             case "SettingsOnCloseRightClick": SettingsOnCloseRightClickCheck.IsChecked = _defaults.SettingsOnCloseRightClick; break;
             case "HardwareAcceleration": HardwareAccelerationCheck.IsChecked = _defaults.HardwareAcceleration; break;
+            case "ColoredIcons": ColoredIconsCheck.IsChecked = _defaults.ColoredIcons; break;
+            case "ColoredEmoji": ColoredEmojiCheck.IsChecked = _defaults.ColoredEmoji; break;
         }
         e.Handled = true;
     }
@@ -899,6 +1139,9 @@ public partial class SettingsWindow : Window
 
     private void RingAction_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Switching icon source swaps which font the picker lists.
+        if (e.PropertyName == nameof(ActionItemViewModel.IconKind) && ReferenceEquals(sender, _selectedAction))
+            PrepareGlyphPicker();
         SyncActivePreset();
         RenderRingDesigner();
         UpdateUndoRingChanges();
@@ -917,6 +1160,7 @@ public partial class SettingsWindow : Window
         current.Glyph == original.Glyph &&
         current.IconKind == original.IconKind &&
         current.IconPath == (original.IconPath ?? "") &&
+        current.IconColor == (original.IconColor ?? "") &&
         current.Kind == original.Kind &&
         current.Target == original.Target &&
         current.Arguments == original.Arguments &&
@@ -1138,8 +1382,9 @@ public partial class SettingsWindow : Window
         else
             host.Children.Add(new TextBlock
             {
-                Text = action.DisplayGlyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                FontSize = radius * 0.82, Foreground = new SolidColorBrush(Color.FromArgb(0xDE, 255, 255, 255)),
+                Text = action.DisplayGlyph, FontFamily = action.GlyphFont,
+                FontSize = radius * 0.82,
+                Foreground = action.BrandBrush ?? new SolidColorBrush(Color.FromArgb(0xDE, 255, 255, 255)),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
 
@@ -1222,6 +1467,10 @@ public partial class SettingsWindow : Window
             }
 
             SelectRingAction(action);
+            // Clicking a ring item is how you edit it, so jump straight there,
+            // at the top of the form rather than wherever it was last left.
+            ShowRingEditTab();
+            RingDetailsEditor.ScrollToTop();
         }
         e.Handled = true;
     }
@@ -1441,7 +1690,7 @@ public partial class SettingsWindow : Window
         content.ColumnDefinitions.Add(new ColumnDefinition());
         content.Children.Add(new TextBlock
         {
-            Text = action.Glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            Text = action.Glyph, FontFamily = IconFonts.For(action.IconKind),
             FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         var text = new StackPanel { Margin = new Thickness(9, 0, 0, 0) };
@@ -1589,8 +1838,10 @@ public partial class SettingsWindow : Window
         ghost.Children.Add(new System.Windows.Shapes.Ellipse { Fill = AcrylicBrushes.Sheen });
         ghost.Children.Add(new TextBlock
         {
-            Text = model.Glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-            FontSize = radius * 0.82, Foreground = Brushes.White,
+            Text = model.Glyph, FontFamily = IconFonts.For(model.IconKind),
+            FontSize = radius * 0.82,
+            Foreground = IconFonts.IconBrush(model.IconKind, model.Glyph, model.IconColor,
+                             IconPreferences.Instance.Colored) ?? Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         _insertPreview = ghost;
@@ -1695,8 +1946,10 @@ public partial class SettingsWindow : Window
         ghost.Children.Add(new System.Windows.Shapes.Ellipse { Fill = AcrylicBrushes.Sheen });
         ghost.Children.Add(new TextBlock
         {
-            Text = model.Glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-            FontSize = radius * 0.82, Foreground = Brushes.White,
+            Text = model.Glyph, FontFamily = IconFonts.For(model.IconKind),
+            FontSize = radius * 0.82,
+            Foreground = IconFonts.IconBrush(model.IconKind, model.Glyph, model.IconColor,
+                             IconPreferences.Instance.Colored) ?? Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         return ghost;
@@ -1950,7 +2203,8 @@ public partial class SettingsWindow : Window
     private static RingAction CloneAction(RingAction action) => new()
     {
         Label = action.Label, Glyph = action.Glyph, IconKind = action.IconKind,
-        IconPath = action.IconPath, Kind = action.Kind, Target = action.Target,
+        IconPath = action.IconPath, IconColor = action.IconColor,
+        Kind = action.Kind, Target = action.Target,
         Arguments = action.Arguments, ScrollBehavior = action.ScrollBehavior, Accent = action.Accent,
         Items = action.Items.Select(CloneAction).ToList(),
     };
@@ -1975,7 +2229,7 @@ public partial class SettingsWindow : Window
     {
         if (_selectedAction is null || sender is not Button { DataContext: GlyphOption option }) return;
         _selectedAction.Glyph = option.Glyph;
-        FluentGlyphs.Select(option.Glyph);
+        GlyphCatalog.Select(_selectedAction.IconKind, option.Glyph);
     }
 
     private void GlyphSearch_TextChanged(object sender, TextChangedEventArgs e)
@@ -1991,14 +2245,14 @@ public partial class SettingsWindow : Window
     {
         if (_selectedAction is null) return;
         if (!string.IsNullOrEmpty(GlyphSearchBox.Text)) GlyphSearchBox.Clear();
-        FluentGlyphs.Select(_selectedAction.Glyph);
+        GlyphCatalog.Select(_selectedAction.IconKind, _selectedAction.Glyph);
         RefreshGlyphRows(scrollToSelection: true);
     }
 
     private void RefreshGlyphRows(bool scrollToSelection)
     {
-        if (GlyphList is null) return;
-        var rows = FluentGlyphs.Filter(GlyphSearchBox?.Text);
+        if (GlyphList is null || _selectedAction is null) return;
+        var rows = GlyphCatalog.For(_selectedAction.IconKind).Filter(GlyphSearchBox?.Text);
         GlyphList.ItemsSource = rows;
         if (!scrollToSelection || _selectedAction is null) return;
 
@@ -2219,6 +2473,8 @@ public partial class SettingsWindow : Window
             Tint = TintBox.Text.Trim(), TintOpacity = TintOpacitySlider.Value,
             Accent = AccentBox.Text.Trim(), FollowCursor = FollowCursorCheck.IsChecked == true,
             HardwareAcceleration = HardwareAccelerationCheck.IsChecked == true,
+            ColoredIcons = ColoredIconsCheck.IsChecked == true,
+            ColoredEmoji = ColoredEmojiCheck.IsChecked == true,
             Actions = Actions.Select(action => action.ToModel()).ToList(),
             Presets = Presets.Select(preset => new RingPreset
             {
