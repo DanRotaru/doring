@@ -2162,7 +2162,7 @@ public partial class SettingsWindow : Window
         error = "";
         if (!HotKeyParser.TryParse(HotKeyBox.Text.Trim(), out _, out _))
         {
-            error = "Enter a valid keyboard shortcut, such as Ctrl+Space.";
+            error = "Enter a valid keyboard shortcut, such as Ctrl+Alt+Space.";
             return false;
         }
         if (!TryInt(HoldThresholdBox, 50, 2000, "Hold threshold", out var threshold, out error) ||

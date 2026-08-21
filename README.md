@@ -11,7 +11,7 @@ anywhere and run it.
 dotnet run --project DoRing
 ```
 
-The app has no main window. It sits in the tray; press **Ctrl+Space** (or
+The app has no main window. It sits in the tray; press **Ctrl+Alt+Space** (or
 left-click the tray icon) to summon the ring at the mouse.
 
 Two ways to work it, and you don't choose between them up front — the same press
@@ -78,7 +78,7 @@ binary so the whole thing stays portable).
 
 ```jsonc
 {
-  "HotKey": "Ctrl+Space",
+  "HotKey": "Ctrl+Alt+Space",
   "HoldToActivate": true,  // hold the hotkey, move onto an item, release to run it
   "HoldThresholdMs": 180,  // how long a press must last to count as a hold, not a tap
   "ButtonRadius": 25,      // size of each round button, in DIPs
@@ -194,7 +194,7 @@ DoRing/
     MemoryTrim.cs           hands idle pages back to the OS
     AcrylicBrushes.cs       the faux-acrylic tint / sheen / grain layers
     ActionRunner.cs         launches processes, injects keystrokes
-    HotKeyParser.cs         "Ctrl+Space" -> (ModifierKeys, Key)
+    HotKeyParser.cs         "Ctrl+Alt+Space" -> (ModifierKeys, Key)
   Interop/
     NativeMethods.cs        P/Invoke surface
     HotKeyManager.cs        RegisterHotKey against a raw Win32 message-only window
@@ -294,7 +294,7 @@ well past the ring.
 Releasing does not run the action immediately, and that delay is load-bearing. A
 combo comes up one key at a time, and a `Keys` action injected while the other half is
 still physically down arrives at the target window with those modifiers folded in —
-`Win+D` chosen out of `Ctrl+Space` lands as `Ctrl+Win+D`. So the release locks
+`Ctrl+C` chosen out of `Ctrl+Alt+Space` lands as `Ctrl+Alt+C`. So the release locks
 the choice, stops tracking the cursor, and waits for the keyboard to clear (capped at
 700 ms, in case something is stuck) before running anything.
 

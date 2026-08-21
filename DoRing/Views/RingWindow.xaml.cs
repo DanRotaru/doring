@@ -863,8 +863,8 @@ public partial class RingWindow : Window
         // makes releasing feel like one motion rather than a sequence. Running
         // the action right here would be a mistake though: a Keys action fired
         // while the other half of the combo is still physically down arrives at
-        // the target window with those modifiers folded in, so Win+D sent out
-        // of Ctrl+Space lands as Ctrl+Win+D. Wait for the hand to leave the
+        // the target window with those modifiers folded in, so Ctrl+C sent out
+        // of Ctrl+Alt+Space lands as Ctrl+Alt+C. Wait for the hand to leave the
         // keyboard first.
         _holdReleased = true;
         _holdReleasedAt = Environment.TickCount64;
