@@ -2,7 +2,7 @@ using System.Windows.Input;
 
 namespace DoRing.Services;
 
-/// <summary>Parses strings like "Ctrl+Alt+Space" or "Win+Shift+S".</summary>
+/// <summary>Parses strings like "Ctrl+Space" or "Win+Shift+S".</summary>
 public static class HotKeyParser
 {
     public static bool TryParse(string text, out ModifierKeys modifiers, out Key key)

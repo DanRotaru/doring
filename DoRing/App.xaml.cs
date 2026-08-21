@@ -238,8 +238,8 @@ public partial class App : System.Windows.Application
 
         if (!HotKeyParser.TryParse(_config.HotKey, out var modifiers, out var key))
         {
-            Warn($"'{_config.HotKey}' is not a hotkey I understand. Falling back to Ctrl+Alt+Space.");
-            modifiers = System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Alt;
+            Warn($"'{_config.HotKey}' is not a hotkey I understand. Falling back to Ctrl+Space.");
+            modifiers = System.Windows.Input.ModifierKeys.Control;
             key = System.Windows.Input.Key.Space;
         }
 

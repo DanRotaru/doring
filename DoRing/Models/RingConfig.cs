@@ -122,8 +122,8 @@ public sealed class RingPreset
 
 public sealed class RingConfig
 {
-    /// <summary>Global hotkey, e.g. "Ctrl+Alt+Space".</summary>
-    public string HotKey { get; set; } = "Ctrl+Alt+Space";
+    /// <summary>Global hotkey, e.g. "Ctrl+Space".</summary>
+    public string HotKey { get; set; } = "Ctrl+Space";
 
     /// <summary>
     /// Keep the hotkey held, move onto an item, let go: the item runs. Tapping

@@ -57,7 +57,7 @@ public sealed class HotKeyManager : IDisposable
         }
     }
 
-    /// <summary>Registers e.g. Ctrl+Alt+Space. Returns false if taken by another app.</summary>
+    /// <summary>Registers e.g. Ctrl+Space. Returns false if taken by another app.</summary>
     public bool Register(ModifierKeys modifiers, Key key)
     {
         Unregister();
