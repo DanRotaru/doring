@@ -18,9 +18,25 @@ using ActionRing.Services;
 
 namespace ActionRing.Views;
 
-public sealed record ActionPreset(RingAction Action);
+public sealed record ActionPreset(RingAction Action)
+{
+    public string IconText => Action.Kind == ActionKind.Command && Action.Target == "Volume"
+        ? "\uE995" // Volume3 in the catalog; the ring itself shows the live number.
+        : Action.ScrollBehavior == ScrollBehavior.Brightness
+            ? "\uE706" // Brightness in the catalog; the ring itself shows the live number.
+            : Action.Glyph;
 
-public sealed record ActionPresetCategory(string Name, IReadOnlyList<ActionPreset> Items);
+    public string Subtitle => Action.Label == "Open App/File/Folder"
+        ? "Open any app, file or folder"
+        : Action.Target == "ActionRingSettings"
+            ? "Open Action Ring settings"
+        : Action.Target;
+}
+
+public sealed record ActionPresetCategory(string Name, IReadOnlyList<ActionPreset> Items, string Description = "")
+{
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+}
 
 public sealed class ActionItemViewModel : INotifyPropertyChanged
 {
@@ -33,6 +49,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     private string _target;
     private string _arguments;
     private string _accent;
+    private ScrollBehavior _scrollBehavior;
     private ImageSource? _displayIcon;
 
     public ActionItemViewModel(RingAction action, ActionItemViewModel? parent = null)
@@ -46,6 +63,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Kind = action.Kind,
             Target = action.Target,
             Arguments = action.Arguments,
+            ScrollBehavior = action.ScrollBehavior,
             Accent = action.Accent,
         };
         Parent = parent;
@@ -56,12 +74,15 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         _kind = action.Kind;
         _target = action.Target;
         _arguments = action.Arguments;
+        _scrollBehavior = action.ScrollBehavior;
         _accent = action.Accent ?? "";
         RefreshDisplayIcon();
         foreach (var child in action.Items) Children.Add(new ActionItemViewModel(child, this));
     }
 
-    public static Array Kinds { get; } = Enum.GetValues<ActionKind>();
+    // Used only by the legacy Actions page. Its choices intentionally remain
+    // unchanged; the visual Actions Ring editor supplies specialized presets.
+    public static Array Kinds { get; } = new[] { ActionKind.Launch, ActionKind.Url, ActionKind.Keys, ActionKind.Group };
     public ActionItemViewModel? Parent { get; }
     public ObservableCollection<ActionItemViewModel> Children { get; } = new();
 
@@ -86,6 +107,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Changed(nameof(DisplayIcon));
             Changed(nameof(UseAppImage));
             Changed(nameof(UseDisplayGlyph));
+            Changed(nameof(UseDisplayGlyph));
         }
     }
     public bool UseGlyph { get => IconKind == ActionIconKind.Glyph; set { if (value) IconKind = ActionIconKind.Glyph; } }
@@ -103,9 +125,46 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Changed(nameof(UseDisplayGlyph));
         }
     }
-    public ActionKind Kind { get => _kind; set { _kind = value; Changed(); } }
-    public string Target { get => _target; set { _target = value; Changed(); } }
+    public ActionKind Kind { get => _kind; set { _kind = value; Changed(); NotifyKindProperties(); } }
+    public string KindDisplay => Kind switch
+    {
+        ActionKind.Launch => "Open app, file, or folder", ActionKind.Url => "Open web page",
+        ActionKind.Keys => "Keyboard shortcut",
+        ActionKind.Command when ScrollBehavior == ScrollBehavior.Volume => "Media & Volume Action",
+        ActionKind.Command => "Windows command",
+        ActionKind.PasteText => "Paste text", ActionKind.MousePosition => "Move mouse cursor",
+        ActionKind.DateTime => "Date and time", ActionKind.Clipboard => "Clipboard",
+        _ => "Group",
+    };
+    public bool IsLaunch => Kind == ActionKind.Launch;
+    public bool IsUrl => Kind == ActionKind.Url;
+    public bool IsKeys => Kind == ActionKind.Keys;
+    public bool IsPasteText => Kind == ActionKind.PasteText;
+    public bool IsMousePosition => Kind == ActionKind.MousePosition;
+    public bool IsDateTime => Kind == ActionKind.DateTime;
+    public bool HasNoCustomInput => Kind is ActionKind.Command or ActionKind.Clipboard or ActionKind.Group;
+    public string Target
+    {
+        get => _target;
+        set
+        {
+            _target = value; RefreshDisplayIcon(); Changed(); Changed(nameof(DisplayIcon));
+            Changed(nameof(UseAppImage)); Changed(nameof(UseDisplayGlyph));
+            Changed(nameof(MouseX)); Changed(nameof(MouseY));
+        }
+    }
+    public string MouseX
+    {
+        get => Target.Split(',', StringSplitOptions.TrimEntries).ElementAtOrDefault(0) ?? "";
+        set => Target = $"{value}, {MouseY}";
+    }
+    public string MouseY
+    {
+        get => Target.Split(',', StringSplitOptions.TrimEntries).ElementAtOrDefault(1) ?? "";
+        set => Target = $"{MouseX}, {value}";
+    }
     public string Arguments { get => _arguments; set { _arguments = value; Changed(); } }
+    public ScrollBehavior ScrollBehavior { get => _scrollBehavior; set { _scrollBehavior = value; Changed(); Changed(nameof(KindDisplay)); } }
     public string Accent { get => _accent; set { _accent = value; Changed(); } }
     public bool IsModified =>
         Label != _original.Label ||
@@ -115,6 +174,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         Kind != _original.Kind ||
         Target != _original.Target ||
         Arguments != _original.Arguments ||
+        ScrollBehavior != _original.ScrollBehavior ||
         Accent != (_original.Accent ?? "");
 
     public void Revert()
@@ -126,25 +186,36 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         Kind = _original.Kind;
         Target = _original.Target;
         Arguments = _original.Arguments;
+        ScrollBehavior = _original.ScrollBehavior;
         Accent = _original.Accent ?? "";
         Changed(nameof(IsModified));
     }
 
     public RingAction ToModel() => new()
     {
-        Label = Label.Trim(), Glyph = Glyph, IconKind = IconKind, IconPath = IconPath.Trim(),
+        Label = Label.Trim(), Glyph = Glyph, IconKind = IconKind,
+        IconPath = IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(IconPath) ? Target.Trim() : IconPath.Trim(),
         Kind = Kind, Target = Target.Trim(),
-        Arguments = Arguments.Trim(), Accent = string.IsNullOrWhiteSpace(Accent) ? null : Accent.Trim(),
+        Arguments = Arguments.Trim(), ScrollBehavior = ScrollBehavior,
+        Accent = string.IsNullOrWhiteSpace(Accent) ? null : Accent.Trim(),
         Items = Children.Select(child => child.ToModel()).ToList(),
     };
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void RefreshDisplayIcon()
     {
+        var iconSource = string.IsNullOrWhiteSpace(_iconPath) ? _target : _iconPath;
         _displayIcon = IconKind == ActionIconKind.AppIcon &&
-                       RingWindow.TryLoadIcon(_iconPath, 20, out var source)
+                       RingWindow.TryLoadIcon(iconSource, 20, out var source)
             ? source
             : null;
+    }
+
+    private void NotifyKindProperties()
+    {
+        Changed(nameof(KindDisplay)); Changed(nameof(IsLaunch)); Changed(nameof(IsUrl));
+        Changed(nameof(IsKeys)); Changed(nameof(IsPasteText)); Changed(nameof(IsMousePosition));
+        Changed(nameof(IsDateTime)); Changed(nameof(HasNoCustomInput));
     }
 
     private void Changed([CallerMemberName] string? name = null)
@@ -270,6 +341,7 @@ public partial class SettingsWindow : Window
     private long _dragCompletedAt;
     private bool _dropCommitted;
     private bool _suppressPresetClick;
+    private bool _replaceSelectedFromPicker;
     private readonly List<DesignerTarget> _designerTargets = new();
     private readonly List<System.Windows.Shapes.Line> _designerGroupLines = new();
     private readonly List<System.Windows.Shapes.Ellipse> _dropOutlines = new();
@@ -286,6 +358,11 @@ public partial class SettingsWindow : Window
         {
             SelectRingAction(action);
             ShowRingEditTab();
+        };
+        RingDetailsEditor.ChooseActionRequested += (_, _) =>
+        {
+            _replaceSelectedFromPicker = _selectedAction is not null;
+            ShowRingActionsTab();
         };
         // Resolve the installed icon font once while the window is being
         // created. Opening the picker then only shows an already-built,
@@ -526,45 +603,102 @@ public partial class SettingsWindow : Window
     [
         new("MEDIA & VOLUME",
         [
-            Preset("Previous track", "", ActionKind.Keys, "MediaPreviousTrack"),
-            Preset("Play / pause", "", ActionKind.Keys, "MediaPlayPause"),
-            Preset("Next track", "", ActionKind.Keys, "MediaNextTrack"),
-            Preset("Mute", "", ActionKind.Keys, "VolumeMute"),
-        ]),
+            Preset("Play/Pause", "", ActionKind.Command, "MediaPlayPause", scroll: ScrollBehavior.Volume),
+            Preset("Mute", "", ActionKind.Command, "VolumeMute", scroll: ScrollBehavior.Volume),
+            Preset("Previous", "", ActionKind.Command, "MediaPreviousTrack", scroll: ScrollBehavior.Volume),
+            Preset("Next", "", ActionKind.Command, "MediaNextTrack", scroll: ScrollBehavior.Volume),
+            Preset("Stop", "", ActionKind.Command, "MediaStop", scroll: ScrollBehavior.Volume),
+            Preset("Volume", "\uE995", ActionKind.Command, "Volume", scroll: ScrollBehavior.Volume),
+            SettingsPreset(ScrollBehavior.Volume),
+        ], "Mouse scroll on any of these items will change the volume."),
         new("OPEN",
         [
-            Preset("Terminal", "", ActionKind.Launch, "wt.exe"),
-            Preset("File Explorer", "", ActionKind.Launch, "explorer.exe"),
-            Preset("Settings", "", ActionKind.Launch, "ms-settings:"),
+            Preset("Open App/File/Folder", "", ActionKind.Launch, ""),
+            Preset("Open Web Page (URL)", "", ActionKind.Url, "https://"),
+            Preset("Windows Explorer", "", ActionKind.Launch, "explorer.exe"),
+            Preset("Windows Terminal", "", ActionKind.Launch, "wt.exe"),
+            Preset("Task Manager", "", ActionKind.Launch, "taskmgr.exe"),
+            Preset("Task View", "", ActionKind.Keys, "Win+Tab"),
+            Preset("Windows Run", "", ActionKind.Keys, "Win+R"),
+            Preset("Windows Settings", "", ActionKind.Launch, "ms-settings:"),
+            Preset("Control Panel", "", ActionKind.Launch, "control.exe"),
+            SettingsPreset(),
         ]),
-        new("NAVIGATION",
+        new("WINDOWS",
         [
-            Preset("Task view", "", ActionKind.Keys, "Win+Tab"),
             Preset("Show desktop", "", ActionKind.Keys, "Win+D"),
             Preset("Snap left", "", ActionKind.Keys, "Win+Left"),
             Preset("Snap right", "", ActionKind.Keys, "Win+Right"),
-        ]),
-        new("UTILITIES",
-        [
-            Preset("Windows screenshot", "", ActionKind.Keys, "Win+Shift+S"),
-            Preset("Clipboard history", "", ActionKind.Keys, "Win+V"),
-            Preset("Search", "", ActionKind.Keys, "Win+S"),
+            Preset("Next desktop", "", ActionKind.Keys, "Ctrl+Win+Right"),
+            Preset("Previous desktop", "", ActionKind.Keys, "Ctrl+Win+Left"),
+            Preset("Snip", "", ActionKind.Keys, "Win+Shift+S"),
+            Preset("Magnifier", "\uE71E", ActionKind.Keys, "Win+Plus"),
+            Preset("Close window", "", ActionKind.Keys, "Alt+F4"),
+            Preset("Maximize window", "\uE922", ActionKind.Keys, "Win+Up"),
+            Preset("Minimize window", "", ActionKind.Keys, "Win+Down"),
+            Preset("Move window to center", "\uE7C2", ActionKind.Command, "WindowCenter"),
+            SettingsPreset(),
         ]),
         new("SYSTEM",
         [
-            Preset("Lock device", "", ActionKind.Keys, "Win+L"),
+            Preset("Screen Brightness", "\uE706", ActionKind.Command, "BrightnessUp", scroll: ScrollBehavior.Brightness),
+            Preset("Lock Windows", "", ActionKind.Keys, "Win+L"),
             Preset("Quick settings", "", ActionKind.Keys, "Win+A"),
+            Preset("Search", "", ActionKind.Keys, "Win+S"),
+            Preset("Project display", "", ActionKind.Keys, "Win+P"),
+            Preset("Accessibility", "", ActionKind.Keys, "Win+U"),
+            SettingsPreset(),
+        ]),
+        new("MOUSE",
+        [
+            Preset("Move mouse cursor", "\uE962", ActionKind.MousePosition, "0, 0"),
+            Preset("Left click", "\uE962", ActionKind.Command, "MouseLeftClick"),
+            Preset("Right click", "\uE962", ActionKind.Command, "MouseRightClick"),
+            Preset("Middle click", "\uE962", ActionKind.Command, "MouseMiddleClick"),
+            Preset("Move to screen center", "\uE962", ActionKind.Command, "MouseCenter"),
+            SettingsPreset(),
         ]),
         new("KEYBOARD",
         [
-            Preset("Copy", "", ActionKind.Keys, "Ctrl+C"),
-            Preset("Paste", "", ActionKind.Keys, "Ctrl+V"),
+            Preset("Keyboard Shortcut", "", ActionKind.Keys, "Ctrl+Shift+S"),
+            Preset("Paste Text", "", ActionKind.PasteText, ""),
+            Preset("Emoji", "\uE76E", ActionKind.Keys, "Win+Period"),
             Preset("Undo", "", ActionKind.Keys, "Ctrl+Z"),
+            Preset("Redo", "", ActionKind.Keys, "Ctrl+Y"),
+            Preset("Select all", "", ActionKind.Keys, "Ctrl+A"),
+            SettingsPreset(),
+        ]),
+        new("DATE AND TIME",
+        [
+            Preset("Paste current date", "", ActionKind.DateTime, "yyyy-MM-dd"),
+            Preset("Paste UNIX timestamp", "\uE917", ActionKind.DateTime, "unix"),
+            Preset("Paste Week number", "", ActionKind.DateTime, "week"),
+            Preset("Paste current time", "\uE917", ActionKind.DateTime, "HH:mm:ss"),
+            Preset("Paste date and time", "\uEC92", ActionKind.DateTime, "yyyy-MM-dd HH:mm:ss"),
+            SettingsPreset(),
+        ]),
+        new("CLIPBOARD",
+        [
+            Preset("Copy", "", ActionKind.Clipboard, "copy"), Preset("Paste", "", ActionKind.Clipboard, "paste"),
+            Preset("Cut", "", ActionKind.Clipboard, "cut"), Preset("Clear Clipboard", "", ActionKind.Clipboard, "clear"),
+            Preset("Url encode clipboard", "\uE71B", ActionKind.Clipboard, "url-encode"),
+            Preset("Url decode clipboard", "\uE71B", ActionKind.Clipboard, "url-decode"),
+            Preset("HTML encode clipboard", "\uE943", ActionKind.Clipboard, "html-encode"),
+            Preset("HTML decode clipboard", "\uE943", ActionKind.Clipboard, "html-decode"),
+            Preset("Uppercase clipboard", "\uE8D2", ActionKind.Clipboard, "upper"),
+            Preset("Lowercase clipboard", "\uE8D2", ActionKind.Clipboard, "lower"),
+            Preset("Trim clipboard", "\uE78A", ActionKind.Clipboard, "trim"),
+            Preset("Clipboard history", "", ActionKind.Keys, "Win+V"),
+            SettingsPreset(),
         ]),
     ];
 
-    private static ActionPreset Preset(string label, string glyph, ActionKind kind, string target) =>
-        new(new RingAction { Label = label, Glyph = glyph, Kind = kind, Target = target });
+    private static ActionPreset Preset(string label, string glyph, ActionKind kind, string target,
+        string arguments = "", ScrollBehavior scroll = ScrollBehavior.None) =>
+        new(new RingAction { Label = label, Glyph = glyph, Kind = kind, Target = target, Arguments = arguments, ScrollBehavior = scroll });
+
+    private static ActionPreset SettingsPreset(ScrollBehavior scroll = ScrollBehavior.None) =>
+        Preset("Settings", "\uE713", ActionKind.Command, "ActionRingSettings", scroll: scroll);
 
     private void Actions_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -778,7 +912,7 @@ public partial class SettingsWindow : Window
         // so the complete configuration can be scanned without hovering.
         foreach (var (action, point, radius) in labels)
         {
-            if (_expandedGroup is not null) continue;
+            if (_expandedGroup is not null || PreviewLabelsCheck?.IsChecked == false) continue;
 
             var pill = CreateDesignerPill(action.DisplayLabel, tintBrush);
             pill.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -828,6 +962,24 @@ public partial class SettingsWindow : Window
             {
                 Source = action.DisplayIcon, Width = radius * 1.05, Height = radius * 1.05,
                 Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            });
+        else if (action.Kind == ActionKind.Command && action.Target == "Volume")
+            host.Children.Add(new TextBlock
+            {
+                Text = SystemVolume.GetPercent().ToString(),
+                FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
+                FontSize = radius * 0.62, FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xEE, 255, 255, 255)),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            });
+        else if (action.ScrollBehavior == ScrollBehavior.Brightness)
+            host.Children.Add(new TextBlock
+            {
+                Text = SystemBrightness.GetPercent().ToString(),
+                FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
+                FontSize = radius * 0.62, FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xEE, 255, 255, 255)),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
             });
         else
             host.Children.Add(new TextBlock
@@ -937,8 +1089,14 @@ public partial class SettingsWindow : Window
         RenderRingDesigner();
     }
 
-    private void RingActionsTab_Click(object sender, RoutedEventArgs e) => ShowRingActionsTab();
+    private void RingActionsTab_Click(object sender, RoutedEventArgs e)
+    {
+        _replaceSelectedFromPicker = false;
+        ShowRingActionsTab();
+    }
     private void RingEditTab_Click(object sender, RoutedEventArgs e) => ShowRingEditTab();
+
+    private void PreviewLabels_Click(object sender, RoutedEventArgs e) => RenderRingDesigner();
 
     private void ShowRingActionsTab()
     {
@@ -1412,6 +1570,7 @@ public partial class SettingsWindow : Window
             var added = new ActionItemViewModel(CloneAction(preset.Action));
             Actions.Insert(index, added);
             SelectRingAction(added);
+            ShowRingEditTab();
         }
         else if (e.Data.GetData(typeof(ActionItemViewModel)) is ActionItemViewModel source)
         {
@@ -1434,6 +1593,7 @@ public partial class SettingsWindow : Window
             var added = new ActionItemViewModel(CloneAction(preset.Action), _expandedGroup);
             _expandedGroup.Children.Insert(Math.Clamp(index, 0, _expandedGroup.Children.Count), added);
             SelectRingAction(added);
+            ShowRingEditTab();
         }
         else if (source is not null && ReferenceEquals(source.Parent, _expandedGroup))
         {
@@ -1456,9 +1616,18 @@ public partial class SettingsWindow : Window
             _suppressPresetClick = false;
             return;
         }
-        if (RecentlyCompletedDrag() || _selectedAction is null ||
-            sender is not FrameworkElement { DataContext: ActionPreset preset }) return;
-        ReplaceAction(_selectedAction, preset.Action);
+        if (RecentlyCompletedDrag() || sender is not FrameworkElement { DataContext: ActionPreset preset }) return;
+        if (_replaceSelectedFromPicker && _selectedAction is not null)
+        {
+            _replaceSelectedFromPicker = false;
+            ReplaceAction(_selectedAction, preset.Action);
+            return;
+        }
+        var parent = _expandedGroup;
+        var added = new ActionItemViewModel(CloneAction(preset.Action), parent);
+        if (parent is null) Actions.Add(added); else parent.Children.Add(added);
+        SelectRingAction(added);
+        ShowRingEditTab();
     }
 
     private void ReplaceAction(ActionItemViewModel target, RingAction model)
@@ -1470,6 +1639,7 @@ public partial class SettingsWindow : Window
         list[index] = replacement;
         if (ReferenceEquals(_expandedGroup, target)) _expandedGroup = replacement.Children.Count > 0 ? replacement : null;
         SelectRingAction(replacement);
+        ShowRingEditTab();
     }
 
     private void MoveActionTo(ActionItemViewModel source, ActionItemViewModel target)
@@ -1530,7 +1700,7 @@ public partial class SettingsWindow : Window
     {
         Label = action.Label, Glyph = action.Glyph, IconKind = action.IconKind,
         IconPath = action.IconPath, Kind = action.Kind, Target = action.Target,
-        Arguments = action.Arguments, Accent = action.Accent,
+        Arguments = action.Arguments, ScrollBehavior = action.ScrollBehavior, Accent = action.Accent,
         Items = action.Items.Select(CloneAction).ToList(),
     };
 
@@ -1759,8 +1929,24 @@ public partial class SettingsWindow : Window
         {
             if (string.IsNullOrWhiteSpace(action.Label)) { error = "Every action needs a name."; return false; }
             if (!string.IsNullOrWhiteSpace(action.Accent) && !IsColour(action.Accent)) { error = $"The accent for '{action.DisplayLabel}' is not a valid hex colour."; return false; }
-            if (action.IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(action.IconPath)) { error = $"'{action.DisplayLabel}' needs an app icon path."; return false; }
+            if (action.IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(action.IconPath) &&
+                (action.Kind != ActionKind.Launch || string.IsNullOrWhiteSpace(action.Target))) { error = $"'{action.DisplayLabel}' needs an app icon path."; return false; }
             if (action.Kind != ActionKind.Group && string.IsNullOrWhiteSpace(action.Target)) { error = $"'{action.DisplayLabel}' needs a target."; return false; }
+            if (action.Kind == ActionKind.Keys && !HotKeyParser.TryParse(action.Target, out _, out _))
+            { error = $"'{action.DisplayLabel}' needs a valid keyboard shortcut."; return false; }
+            if (action.Kind == ActionKind.MousePosition)
+            {
+                var coordinates = action.Target.Split(',', StringSplitOptions.TrimEntries);
+                if (coordinates.Length != 2 || !int.TryParse(coordinates[0], out _) || !int.TryParse(coordinates[1], out _))
+                { error = $"'{action.DisplayLabel}' needs numeric X and Y coordinates."; return false; }
+            }
+            if (action.Kind == ActionKind.DateTime &&
+                !action.Target.Equals("unix", StringComparison.OrdinalIgnoreCase) &&
+                !action.Target.Equals("week", StringComparison.OrdinalIgnoreCase))
+            {
+                try { _ = DateTime.Now.ToString(action.Target, CultureInfo.CurrentCulture); }
+                catch (FormatException) { error = $"'{action.DisplayLabel}' has an invalid date/time format."; return false; }
+            }
         }
 
         config = new RingConfig

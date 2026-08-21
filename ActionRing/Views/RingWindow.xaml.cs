@@ -124,6 +124,7 @@ public partial class RingWindow : Window
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
         MouseRightButtonUp += OnMouseRightButtonUp;
+        MouseWheel += OnMouseWheel;
         KeyDown += OnKeyDown;
 
         // Rendering the ring dirties a few MB of pages that are dead the moment
@@ -336,6 +337,15 @@ public partial class RingWindow : Window
 
     private FrameworkElement CreateIconVisual(RingAction action, double radius)
     {
+        if (action.Kind == ActionKind.Command && action.Target == "Volume")
+        {
+            return CreateLevelVisual(SystemVolume.GetPercent(), "VolumeValue", radius);
+        }
+        if (action.ScrollBehavior == ScrollBehavior.Brightness)
+        {
+            return CreateLevelVisual(SystemBrightness.GetPercent(), "BrightnessValue", radius);
+        }
+
         if (action.IconKind == ActionIconKind.AppIcon && TryLoadIcon(action.IconPath, radius, out var source))
         {
             return new Image
@@ -360,6 +370,15 @@ public partial class RingWindow : Window
         };
     }
 
+    private static TextBlock CreateLevelVisual(int value, string tag, double radius) => new()
+    {
+        Text = value.ToString(), Tag = tag,
+        FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI"),
+        FontSize = radius * 0.62, FontWeight = FontWeights.SemiBold,
+        Foreground = new SolidColorBrush(Color.FromArgb(0xEE, 0xFF, 0xFF, 0xFF)),
+        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+    };
+
     internal static bool TryLoadIcon(string rawPath, double radius, out ImageSource? source)
     {
         source = null;
@@ -367,7 +386,19 @@ public partial class RingWindow : Window
         try
         {
             var path = Environment.ExpandEnvironmentVariables(rawPath.Trim());
-            if (!IOPath.IsPathRooted(path)) path = IOPath.Combine(AppContext.BaseDirectory, path);
+            if (!IOPath.IsPathRooted(path))
+            {
+                var local = IOPath.Combine(AppContext.BaseDirectory, path);
+                if (File.Exists(local)) path = local;
+                else
+                {
+                    var resolved = (Environment.GetEnvironmentVariable("PATH") ?? "")
+                        .Split(IOPath.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(folder => IOPath.Combine(folder.Trim(), path))
+                        .FirstOrDefault(File.Exists);
+                    path = resolved ?? local;
+                }
+            }
             if (!File.Exists(path)) return false;
 
             if (string.Equals(IOPath.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
@@ -650,6 +681,7 @@ public partial class RingWindow : Window
         _previousForeground = NativeMethods.GetForegroundWindow();
 
         ResetHover();
+        UpdateLevelDisplays();
 
         // Order matters here, and getting it wrong is what made the ring blink.
         // The window must already be fully transparent before it is shown, and
@@ -1051,6 +1083,37 @@ public partial class RingWindow : Window
         e.Handled = true;
     }
 
+    private void OnMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        RingAction? action = null;
+        if (_hoveredChild != None && _groups.TryGetValue(_openGroup, out var group))
+            action = group.Children[_hoveredChild].Action;
+        else if (_hovered >= 0)
+            action = _buttons[_hovered].Action;
+
+        if (action is null || action.ScrollBehavior == ScrollBehavior.None) return;
+        ActionRunner.RunScroll(action, e.Delta);
+        if (action.ScrollBehavior is ScrollBehavior.Volume or ScrollBehavior.Brightness) UpdateLevelDisplays();
+        e.Handled = true;
+    }
+
+    private void UpdateLevelDisplays()
+    {
+        var all = _buttons.Concat(_groups.Values.SelectMany(group => group.Children)).ToArray();
+        var hasVolume = all.Any(button => button.Icon is TextBlock { Tag: "VolumeValue" });
+        var hasBrightness = all.Any(button => button.Icon is TextBlock { Tag: "BrightnessValue" });
+        var volume = hasVolume ? SystemVolume.GetPercent().ToString() : null;
+        var brightness = hasBrightness ? SystemBrightness.GetPercent().ToString() : null;
+        foreach (var button in all)
+            UpdateLevelDisplay(button, volume, brightness);
+    }
+
+    private static void UpdateLevelDisplay(RingButton button, string? volume, string? brightness)
+    {
+        if (volume is not null && button.Icon is TextBlock { Tag: "VolumeValue" } text) text.Text = volume;
+        else if (brightness is not null && button.Icon is TextBlock { Tag: "BrightnessValue" } brightnessText) brightnessText.Text = brightness;
+    }
+
     /// <summary>
     /// Runs whatever is currently under the pointer.
     ///
@@ -1117,8 +1180,15 @@ public partial class RingWindow : Window
 
     private void Invoke(RingAction action)
     {
-        var restoreTo = _previousForeground;
         Hide();
+
+        if (action.Kind == ActionKind.Command && action.Target == "ActionRingSettings")
+        {
+            Dispatcher.BeginInvoke(_showSettings);
+            return;
+        }
+
+        var restoreTo = _previousForeground;
 
         // Run once the ring is off-screen, so restoring focus to the previous
         // window isn't racing our own teardown.

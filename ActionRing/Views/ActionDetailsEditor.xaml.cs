@@ -13,8 +13,15 @@ public partial class ActionDetailsEditor : UserControl
     }
 
     public event EventHandler<ActionItemViewModel>? ActionCreated;
+    public event EventHandler? ChooseActionRequested;
 
     private ActionItemViewModel? Action => DataContext as ActionItemViewModel;
+
+    private void ActionSummary_Click(object sender, RoutedEventArgs e)
+    {
+        ChooseActionRequested?.Invoke(this, EventArgs.Empty);
+        e.Handled = true;
+    }
 
     private void Prepare()
     {
@@ -54,27 +61,7 @@ public partial class ActionDetailsEditor : UserControl
         RefreshGlyphs();
     }
 
-    private void KindBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateTargetHelp();
-
-    private void UpdateTargetHelp()
-    {
-        if (Action is null || ArgumentsPanel is null) return;
-        ArgumentsPanel.Visibility = Action.Kind == ActionKind.Launch ? Visibility.Visible : Visibility.Collapsed;
-        BrowseTargetButton.Visibility = Action.Kind == ActionKind.Launch ? Visibility.Visible : Visibility.Collapsed;
-        TargetBox.IsEnabled = Action.Kind != ActionKind.Group;
-        TargetLabel.Text = Action.Kind switch
-        {
-            ActionKind.Launch => "File, folder, or app", ActionKind.Url => "Web address",
-            ActionKind.Keys => "Keyboard shortcut", _ => "Target",
-        };
-        TargetHint.Text = Action.Kind switch
-        {
-            ActionKind.Launch => "Example: wt.exe or C:\\Tools\\app.exe",
-            ActionKind.Url => "Example: https://example.com",
-            ActionKind.Keys => "Example: Ctrl+Shift+S",
-            _ => "Groups only contain sub-actions and do not run on their own.",
-        };
-    }
+    private void UpdateTargetHelp() { }
 
     private void BrowseIcon_Click(object sender, RoutedEventArgs e)
     {
@@ -93,10 +80,17 @@ public partial class ActionDetailsEditor : UserControl
         if (Action is null) return;
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Choose a file or app", Filter = "Applications|*.exe;*.com;*.bat;*.cmd|All files|*.*",
+            Title = "Choose an app or file", Filter = "All files|*.*",
             CheckFileExists = true,
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Action.Target = dialog.FileName;
+    }
+
+    private void BrowseFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (Action is null) return;
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder" };
+        if (dialog.ShowDialog(Window.GetWindow(this)) == true) Action.Target = dialog.FolderName;
     }
 
     private void Revert_Click(object sender, RoutedEventArgs e)

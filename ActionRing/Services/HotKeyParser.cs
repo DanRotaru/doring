@@ -28,7 +28,14 @@ public static class HotKeyParser
                 case "meta":
                     modifiers |= ModifierKeys.Windows; break;
                 default:
-                    if (!Enum.TryParse<Key>(part, ignoreCase: true, out key)) return false;
+                    var keyName = part.ToLowerInvariant() switch
+                    {
+                        "plus" or "+" => nameof(Key.OemPlus),
+                        "period" or "." => nameof(Key.OemPeriod),
+                        "minus" or "-" => nameof(Key.OemMinus),
+                        _ => part,
+                    };
+                    if (!Enum.TryParse<Key>(keyName, ignoreCase: true, out key)) return false;
                     break;
             }
         }

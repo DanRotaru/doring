@@ -136,6 +136,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr MonitorFromPoint(POINT pt, int dwFlags);
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hWnd, int dwFlags);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
@@ -145,11 +148,23 @@ internal static class NativeMethods
 
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOZORDER = 0x0004;
+    public const int SW_RESTORE = 9;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetWindowPos(
         IntPtr hWnd, IntPtr hWndInsertAfter,
         int X, int Y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsZoomed(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int command);
 
     // ---- working set ---------------------------------------------------
 
@@ -161,8 +176,15 @@ internal static class NativeMethods
 
     // ---- synthetic input ----------------------------------------------
     public const uint INPUT_KEYBOARD = 1;
+    public const uint INPUT_MOUSE = 0;
     public const uint KEYEVENTF_KEYUP = 0x0002;
     public const uint KEYEVENTF_UNICODE = 0x0004;
+    public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+    public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+    public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+    public const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+    public const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct KEYBDINPUT
@@ -203,4 +225,40 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
+
+    // ---- monitor brightness (DDC/CI) ----------------------------------
+    public delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct PHYSICAL_MONITOR
+    {
+        public IntPtr Handle;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string Description;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clipRect, MonitorEnumProc callback, IntPtr data);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(IntPtr monitor, out uint count);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr monitor, uint count,
+        [Out] PHYSICAL_MONITOR[] physicalMonitors);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool GetMonitorBrightness(IntPtr monitor, out uint minimum, out uint current, out uint maximum);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool SetMonitorBrightness(IntPtr monitor, uint brightness);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool DestroyPhysicalMonitors(uint count, PHYSICAL_MONITOR[] physicalMonitors);
 }

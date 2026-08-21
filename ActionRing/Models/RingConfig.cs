@@ -17,6 +17,23 @@ public enum ActionKind
     /// which fan out when the button is hovered.
     /// </summary>
     Group,
+    /// <summary>One of Action Ring's built-in Windows/media commands.</summary>
+    Command,
+    /// <summary>Paste literal text into the previously focused window.</summary>
+    PasteText,
+    /// <summary>Move the pointer to an absolute screen coordinate.</summary>
+    MousePosition,
+    /// <summary>Paste a formatted date/time value.</summary>
+    DateTime,
+    /// <summary>Read or transform the Windows clipboard.</summary>
+    Clipboard,
+}
+
+public enum ScrollBehavior
+{
+    None,
+    Volume,
+    Brightness,
 }
 
 public enum ActionIconKind
@@ -45,6 +62,9 @@ public sealed class RingAction
     public string Target { get; set; } = "";
 
     public string Arguments { get; set; } = "";
+
+    /// <summary>Optional behavior when the pointer wheel is used over this ring item.</summary>
+    public ScrollBehavior ScrollBehavior { get; set; }
 
     /// <summary>Optional per-button accent, e.g. "#FF5C7CFA". Falls back to the theme accent.</summary>
     public string? Accent { get; set; }
@@ -206,10 +226,12 @@ public sealed class RingConfig
                 Label = "Media", Glyph = "", Kind = ActionKind.Group,
                 Items =
                 {
-                    new RingAction { Label = "Previous",     Glyph = "", Kind = ActionKind.Keys, Target = "MediaPreviousTrack" },
-                    new RingAction { Label = "Play / Pause", Glyph = "", Kind = ActionKind.Keys, Target = "MediaPlayPause" },
-                    new RingAction { Label = "Next",         Glyph = "", Kind = ActionKind.Keys, Target = "MediaNextTrack" },
-                    new RingAction { Label = "Mute",          Glyph = "", Kind = ActionKind.Keys, Target = "VolumeMute" },
+                    new RingAction { Label = "Previous",   Glyph = "", Kind = ActionKind.Command, Target = "MediaPreviousTrack", ScrollBehavior = ScrollBehavior.Volume },
+                    new RingAction { Label = "Play/Pause", Glyph = "", Kind = ActionKind.Command, Target = "MediaPlayPause", ScrollBehavior = ScrollBehavior.Volume },
+                    new RingAction { Label = "Next",       Glyph = "", Kind = ActionKind.Command, Target = "MediaNextTrack", ScrollBehavior = ScrollBehavior.Volume },
+                    new RingAction { Label = "Mute",       Glyph = "", Kind = ActionKind.Command, Target = "VolumeMute", ScrollBehavior = ScrollBehavior.Volume },
+                    new RingAction { Label = "Stop",       Glyph = "", Kind = ActionKind.Command, Target = "MediaStop", ScrollBehavior = ScrollBehavior.Volume },
+                    new RingAction { Label = "Volume",     Glyph = "\uE995", Kind = ActionKind.Command, Target = "Volume", ScrollBehavior = ScrollBehavior.Volume },
                 }
             },
             new RingAction

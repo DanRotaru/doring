@@ -637,6 +637,13 @@
                                         Background="Transparent"
                                         HorizontalAlignment="Center" VerticalAlignment="Center"
                                         DragOver="RingTarget_DragOver" />
+                                <CheckBox x:Name="PreviewLabelsCheck" IsChecked="False"
+                                          HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-3,-5,0,0"
+                                          Height="30" Padding="0" VerticalContentAlignment="Center"
+                                          Panel.ZIndex="20" Click="PreviewLabels_Click"
+                                          ToolTip="Show or hide labels in this preview only">
+                                    <TextBlock Text="Show labels" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </CheckBox>
                                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16"
                                         Padding="5" CornerRadius="8" Background="#12FFFFFF"
                                         BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
@@ -702,13 +709,17 @@
                                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                               BorderThickness="0" FocusVisualStyle="{x:Null}">
                                     <StackPanel>
-                                        <TextBlock Text="Drag an item onto a ring position."
+                                        <TextBlock Text="Select an item or drag it onto a ring position."
                                                    Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="4,0,0,12" />
                                     <ItemsControl ItemsSource="{Binding ActionCategories}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Expander Header="{Binding Name}" IsExpanded="False" Margin="0,0,0,6">
-                                                    <ItemsControl ItemsSource="{Binding Items}" Margin="0,6,0,4">
+                                                    <StackPanel Margin="0,6,0,4">
+                                                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource MutedBrush}"
+                                                               FontSize="11" Margin="4,0,4,8" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasDescription, Converter={StaticResource BoolToVisibility}}" />
+                                                    <ItemsControl ItemsSource="{Binding Items}">
                                                         <ItemsControl.ItemContainerStyle>
                                                             <Style TargetType="ContentPresenter">
                                                                 <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -727,11 +738,11 @@
                                                                         <TextBlock Text="&#xE76F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
                                                                                    FontSize="12" Opacity="0.38"
                                                                                    HorizontalAlignment="Left" VerticalAlignment="Center" />
-                                                                        <TextBlock Grid.Column="1" Text="{Binding Action.Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                        <TextBlock Grid.Column="1" Text="{Binding IconText}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI"
                                                                                    FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                         <StackPanel Grid.Column="2" Margin="8,0">
                                                                             <TextBlock Text="{Binding Action.Label}" TextTrimming="CharacterEllipsis" />
-                                                                            <TextBlock Text="{Binding Action.Target}" Foreground="{StaticResource MutedBrush}"
+                                                                            <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
                                                                                        FontSize="10" TextTrimming="CharacterEllipsis" />
                                                                         </StackPanel>
                                                                         <TextBlock Grid.Column="3" Text="&#xE72A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
@@ -741,6 +752,7 @@
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
+                                                    </StackPanel>
                                                 </Expander>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
