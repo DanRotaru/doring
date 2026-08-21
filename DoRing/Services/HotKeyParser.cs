@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>Parses strings like "Ctrl+Alt+Space" or "Win+Shift+S".</summary>
 public static class HotKeyParser

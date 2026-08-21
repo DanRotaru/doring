@@ -13,10 +13,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
-using ActionRing.Models;
-using ActionRing.Services;
+using DoRing.Models;
+using DoRing.Services;
 
-namespace ActionRing.Views;
+namespace DoRing.Views;
 
 public sealed record ActionPreset(RingAction Action)
 {
@@ -30,8 +30,8 @@ public sealed record ActionPreset(RingAction Action)
             ? "Run any keyboard shortcut"
         : Action.Label == "Paste Text"
             ? "Paste any saved text instantly"
-        : Action.Target == "ActionRingSettings"
-            ? "Open Action Ring settings"
+        : Action.Target == "DoRingSettings"
+            ? "Open DoRing settings"
         : Action.Target == "WindowsSettings"
             ? "Open Windows settings"
         : Action.Target;
@@ -53,6 +53,43 @@ public sealed record ActionPresetCategory(string Name, IReadOnlyList<ActionPrese
         "CLIPBOARD" => "\uE8C8",
         _ => "\uE8FD",
     };
+}
+
+public sealed class RingPresetViewModel : INotifyPropertyChanged
+{
+    private string _name;
+    private bool _isActive;
+
+    public RingPresetViewModel(string id, string name, List<RingAction> actions)
+    {
+        Id = id;
+        _name = name;
+        Actions = actions;
+    }
+
+    public string Id { get; }
+    public string Name
+    {
+        get => _name;
+        set { if (_name == value) return; _name = value; Changed(); }
+    }
+    public List<RingAction> Actions { get; private set; }
+    public string Summary => Actions.Count == 1 ? "1 top-level action" : $"{Actions.Count} top-level actions";
+    public bool IsActive
+    {
+        get => _isActive;
+        set { if (_isActive == value) return; _isActive = value; Changed(); }
+    }
+
+    public void ReplaceActions(List<RingAction> actions)
+    {
+        Actions = actions;
+        Changed(nameof(Summary));
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void Changed([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public sealed class ActionItemViewModel : INotifyPropertyChanged
@@ -147,7 +184,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     {
         ActionKind.Launch => "Open app, file, or folder", ActionKind.Url => "Open web page",
         ActionKind.Keys => "Keyboard shortcut",
-        ActionKind.Command when Target == "ActionRingSettings" => "Action Ring Settings",
+        ActionKind.Command when Target == "DoRingSettings" => "DoRing Settings",
         ActionKind.Command when ScrollBehavior == ScrollBehavior.Volume => "Media & Volume Action",
         ActionKind.Command => "Windows command",
         ActionKind.PasteText => "Paste text", ActionKind.MousePosition => "Move mouse cursor",
@@ -315,7 +352,7 @@ internal static partial class FluentGlyphs
     {
         var result = new Dictionary<int, string>();
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("ActionRing.Resources.segoe-fluent-icons-font.md");
+            .GetManifestResourceStream("DoRing.Resources.segoe-fluent-icons-font.md");
         if (stream is null) return result;
 
         using var reader = new StreamReader(stream);
@@ -350,6 +387,7 @@ public partial class SettingsWindow : Window
     private readonly Func<RingConfig, string?> _save;
     private readonly RingConfig _defaults = RingConfig.CreateDefault();
     private readonly IReadOnlyList<RingAction> _initialActions;
+    private readonly string? _initialActivePresetId;
     private ActionItemViewModel? _selectedAction;
     private ActionItemViewModel? _expandedGroup;
     private FrameworkElement? _pendingDragSource;
@@ -365,6 +403,8 @@ public partial class SettingsWindow : Window
     private readonly List<System.Windows.Shapes.Ellipse> _dropOutlines = new();
     private readonly HashSet<ActionItemViewModel> _ringSelection = new();
     private bool _restoringActions;
+    private bool _applyingPreset;
+    private string? _activePresetId;
     private TextBox? _colorTarget;
     private double _pickerHue;
     private double _pickerSaturation;
@@ -391,20 +431,29 @@ public partial class SettingsWindow : Window
         _initialActions = config.Actions.Select(CloneAction).ToArray();
         Actions = new ObservableCollection<ActionItemViewModel>(
             config.Actions.Select(action => new ActionItemViewModel(action)));
+        Presets = new ObservableCollection<RingPresetViewModel>(config.Presets.Select(preset =>
+            new RingPresetViewModel(preset.Id, preset.Name, preset.Actions.Select(CloneAction).ToList())));
+        _activePresetId = Presets.Any(preset => preset.Id == config.ActivePresetId)
+            ? config.ActivePresetId
+            : null;
+        _initialActivePresetId = _activePresetId;
         ActionCategories = CreateActionCategories();
-        ActionRingSettingsPreset = SettingsPreset();
+        DoRingSettingsPreset = SettingsPreset();
         Actions.CollectionChanged += Actions_CollectionChanged;
+        Presets.CollectionChanged += (_, _) => UpdatePresetsUi();
         foreach (var action in Actions) WatchAction(action);
         DataContext = this;
         LoadGeneral(config);
         WatchGeneralChanges();
         UpdateResetButtons();
+        UpdatePresetsUi();
         ShowGeneral();
     }
 
     public ObservableCollection<ActionItemViewModel> Actions { get; }
+    public ObservableCollection<RingPresetViewModel> Presets { get; }
     public IReadOnlyList<ActionPresetCategory> ActionCategories { get; }
-    public ActionPreset ActionRingSettingsPreset { get; }
+    public ActionPreset DoRingSettingsPreset { get; }
     private void LoadGeneral(RingConfig config)
     {
         HotKeyBox.Text = config.HotKey;
@@ -602,6 +651,112 @@ public partial class SettingsWindow : Window
         RenderRingDesigner();
     }
 
+    private string NextPresetName()
+    {
+        var number = 1;
+        while (Presets.Any(preset => string.Equals(preset.Name.Trim(), $"Preset {number}", StringComparison.OrdinalIgnoreCase)))
+            number++;
+        return $"Preset {number}";
+    }
+
+    private void NewPresetNameBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        SavePreset_Click(sender, e);
+        e.Handled = true;
+    }
+
+    private void UpdatePresetsUi()
+    {
+        if (EmptyPresetsMessage is null) return;
+        EmptyPresetsMessage.Visibility = Presets.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var preset in Presets) preset.IsActive = preset.Id == _activePresetId;
+    }
+
+    private void SavePreset_Click(object sender, RoutedEventArgs e)
+    {
+        var name = NewPresetNameBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            PresetStatusText.Text = "Enter a name for the preset.";
+            NewPresetNameBox.Focus();
+            return;
+        }
+        if (Presets.Any(preset => string.Equals(preset.Name.Trim(), name, StringComparison.OrdinalIgnoreCase)))
+        {
+            PresetStatusText.Text = $"A preset named '{name}' already exists.";
+            return;
+        }
+
+        var preset = new RingPresetViewModel(Guid.NewGuid().ToString("N"), name, SnapshotActions());
+        Presets.Add(preset);
+        _activePresetId = preset.Id;
+        NewPresetNameBox.Text = NextPresetName();
+        PresetStatusText.Text = $"Saved '{name}'.";
+        UpdatePresetsUi();
+    }
+
+    private void ApplyPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not RingPresetViewModel preset) return;
+        ReplaceCurrentActions(preset.Actions);
+        _activePresetId = preset.Id;
+        PresetStatusText.Text = $"Loaded '{preset.Name}'. Choose Save to apply it to DoRing.";
+        UpdatePresetsUi();
+    }
+
+    private void UpdatePreset_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not RingPresetViewModel preset) return;
+        preset.ReplaceActions(SnapshotActions());
+        _activePresetId = preset.Id;
+        PresetStatusText.Text = $"Updated '{preset.Name}' from the current ring.";
+        UpdatePresetsUi();
+    }
+
+    private void DeletePreset_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not RingPresetViewModel preset) return;
+        Presets.Remove(preset);
+        if (_activePresetId == preset.Id) _activePresetId = null;
+        PresetStatusText.Text = $"Deleted '{preset.Name}'.";
+        UpdatePresetsUi();
+    }
+
+    private List<RingAction> SnapshotActions() =>
+        Actions.Select(action => CloneAction(action.ToModel())).ToList();
+
+    private void ReplaceCurrentActions(IEnumerable<RingAction> actions)
+    {
+        _applyingPreset = true;
+        _restoringActions = true;
+        try
+        {
+            Actions.Clear();
+            foreach (var action in actions) Actions.Add(new ActionItemViewModel(CloneAction(action)));
+        }
+        finally
+        {
+            _restoringActions = false;
+            _applyingPreset = false;
+        }
+        _selectedAction = null;
+        _ringSelection.Clear();
+        _expandedGroup = null;
+        ActionEditor.Visibility = Visibility.Collapsed;
+        EmptyActionMessage.Visibility = Visibility.Visible;
+        UpdateRingSelectionUi();
+        RenderRingDesigner();
+        UpdateUndoRingChanges();
+    }
+
+    private void MarkRingAsCustom()
+    {
+        if (_applyingPreset || _restoringActions || _activePresetId is null) return;
+        _activePresetId = null;
+        UpdatePresetsUi();
+    }
+
     private static IReadOnlyList<ActionPresetCategory> CreateActionCategories() =>
     [
         new("MEDIA & VOLUME",
@@ -691,7 +846,7 @@ public partial class SettingsWindow : Window
         new(new RingAction { Label = label, Glyph = glyph, Kind = kind, Target = target, Arguments = arguments, ScrollBehavior = scroll });
 
     private static ActionPreset SettingsPreset() =>
-        Preset("Action Ring Settings", "\uE713", ActionKind.Command, "ActionRingSettings");
+        Preset("DoRing Settings", "\uE713", ActionKind.Command, "DoRingSettings");
 
     private void Actions_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -701,6 +856,7 @@ public partial class SettingsWindow : Window
             foreach (ActionItemViewModel action in e.NewItems) WatchAction(action);
         if (!_restoringActions)
         {
+            MarkRingAsCustom();
             RenderRingDesigner();
             UpdateUndoRingChanges();
         }
@@ -728,6 +884,7 @@ public partial class SettingsWindow : Window
             foreach (ActionItemViewModel action in e.NewItems) WatchAction(action);
         if (!_restoringActions)
         {
+            MarkRingAsCustom();
             RenderRingDesigner();
             UpdateUndoRingChanges();
         }
@@ -735,6 +892,7 @@ public partial class SettingsWindow : Window
 
     private void RingAction_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        MarkRingAsCustom();
         RenderRingDesigner();
         UpdateUndoRingChanges();
     }
@@ -776,7 +934,9 @@ public partial class SettingsWindow : Window
         _selectedAction = null;
         _ringSelection.Clear();
         _expandedGroup = null;
+        _activePresetId = _initialActivePresetId;
         UpdateRingSelectionUi();
+        UpdatePresetsUi();
         ActionEditor.Visibility = Visibility.Collapsed;
         EmptyActionMessage.Visibility = Visibility.Visible;
         RenderRingDesigner();
@@ -1092,6 +1252,7 @@ public partial class SettingsWindow : Window
         var count = _ringSelection.Count;
         var selected = count > 0;
         var multiple = count > 1;
+        NewRingActionLabel.Text = selected ? "New" : "New action";
         SelectedRingCommands.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
         NewRingActionButton.Visibility = multiple ? Visibility.Collapsed : Visibility.Visible;
         RingEditCommandButton.Visibility = count == 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -1116,6 +1277,7 @@ public partial class SettingsWindow : Window
         ShowRingActionsTab();
     }
     private void RingEditTab_Click(object sender, RoutedEventArgs e) => ShowRingEditTab();
+    private void RingPresetsTab_Click(object sender, RoutedEventArgs e) => ShowRingPresetsTab();
 
     private void PreviewLabels_Click(object sender, RoutedEventArgs e) => RenderRingDesigner();
 
@@ -1123,20 +1285,43 @@ public partial class SettingsWindow : Window
     {
         RingActionsTabContent.Visibility = Visibility.Visible;
         RingEditTabContent.Visibility = Visibility.Collapsed;
+        RingPresetsTabContent.Visibility = Visibility.Collapsed;
         RingActionsTabIndicator.Visibility = Visibility.Visible;
         RingEditTabIndicator.Visibility = Visibility.Collapsed;
+        RingPresetsTabIndicator.Visibility = Visibility.Collapsed;
         RingActionsTab.Foreground = Brushes.White;
         RingEditTab.Foreground = (Brush)FindResource("MutedBrush");
+        RingPresetsTab.Foreground = (Brush)FindResource("MutedBrush");
     }
 
     private void ShowRingEditTab()
     {
         RingActionsTabContent.Visibility = Visibility.Collapsed;
         RingEditTabContent.Visibility = Visibility.Visible;
+        RingPresetsTabContent.Visibility = Visibility.Collapsed;
         RingActionsTabIndicator.Visibility = Visibility.Collapsed;
         RingEditTabIndicator.Visibility = Visibility.Visible;
+        RingPresetsTabIndicator.Visibility = Visibility.Collapsed;
         RingActionsTab.Foreground = (Brush)FindResource("MutedBrush");
         RingEditTab.Foreground = Brushes.White;
+        RingPresetsTab.Foreground = (Brush)FindResource("MutedBrush");
+    }
+
+    private void ShowRingPresetsTab()
+    {
+        RingActionsTabContent.Visibility = Visibility.Collapsed;
+        RingEditTabContent.Visibility = Visibility.Collapsed;
+        RingPresetsTabContent.Visibility = Visibility.Visible;
+        RingActionsTabIndicator.Visibility = Visibility.Collapsed;
+        RingEditTabIndicator.Visibility = Visibility.Collapsed;
+        RingPresetsTabIndicator.Visibility = Visibility.Visible;
+        RingActionsTab.Foreground = (Brush)FindResource("MutedBrush");
+        RingEditTab.Foreground = (Brush)FindResource("MutedBrush");
+        RingPresetsTab.Foreground = Brushes.White;
+        PresetStatusText.Text = "";
+        if (string.IsNullOrWhiteSpace(NewPresetNameBox.Text))
+            NewPresetNameBox.Text = NextPresetName();
+        UpdatePresetsUi();
     }
 
     private void NewRingAction_Click(object sender, RoutedEventArgs e)
@@ -1178,6 +1363,7 @@ public partial class SettingsWindow : Window
         {
             _restoringActions = false;
         }
+        MarkRingAsCustom();
         _ringSelection.Clear();
         _selectedAction = null;
         _expandedGroup = null;
@@ -1720,6 +1906,7 @@ public partial class SettingsWindow : Window
             {
                 _restoringActions = false;
             }
+            MarkRingAsCustom();
             UpdateUndoRingChanges();
             SelectRingAction(source);
             return;
@@ -1985,6 +2172,10 @@ public partial class SettingsWindow : Window
         if (!IsColour(TintBox.Text)) { error = "Tint colour must be a hex colour such as #26262E."; return false; }
         if (!IsColour(AccentBox.Text)) { error = "Accent colour must be a hex colour such as #5C7CFA."; return false; }
         if (Actions.Count == 0) { error = "Add at least one action to the ring."; return false; }
+        if (Presets.Any(preset => string.IsNullOrWhiteSpace(preset.Name)))
+        { error = "Every preset needs a name."; return false; }
+        if (Presets.GroupBy(preset => preset.Name.Trim(), StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+        { error = "Preset names must be unique."; return false; }
 
         foreach (var action in Flatten(Actions))
         {
@@ -2020,6 +2211,13 @@ public partial class SettingsWindow : Window
             Accent = AccentBox.Text.Trim(), FollowCursor = FollowCursorCheck.IsChecked == true,
             HardwareAcceleration = HardwareAccelerationCheck.IsChecked == true,
             Actions = Actions.Select(action => action.ToModel()).ToList(),
+            Presets = Presets.Select(preset => new RingPreset
+            {
+                Id = preset.Id,
+                Name = preset.Name.Trim(),
+                Actions = preset.Actions.Select(CloneAction).ToList(),
+            }).ToList(),
+            ActivePresetId = _activePresetId,
         };
         return true;
     }

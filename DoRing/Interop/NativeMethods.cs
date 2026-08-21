@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace ActionRing.Interop;
+namespace DoRing.Interop;
 
 internal static class NativeMethods
 {

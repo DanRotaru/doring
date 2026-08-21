@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>Reads and changes the Windows Core Audio master volume.</summary>
 internal static class SystemVolume

@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace ActionRing.Interop;
+namespace DoRing.Interop;
 
 /// <summary>
 /// Registers a system-wide hotkey against a message-only window.
@@ -13,7 +13,7 @@ namespace ActionRing.Interop;
 public sealed class HotKeyManager : IDisposable
 {
     private const int HotKeyId = 0xA11E;
-    private const string ClassName = "ActionRing.HotKeySink";
+    private const string ClassName = "DoRing.HotKeySink";
 
     // Held in a field so the GC can't collect the delegate out from under
     // Windows, which would take the process with it.

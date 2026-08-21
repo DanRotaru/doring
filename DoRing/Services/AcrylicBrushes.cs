@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>
 /// Faux-acrylic building blocks.

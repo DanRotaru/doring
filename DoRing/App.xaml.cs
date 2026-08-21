@@ -3,12 +3,12 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
-using ActionRing.Interop;
-using ActionRing.Models;
-using ActionRing.Services;
-using ActionRing.Views;
+using DoRing.Interop;
+using DoRing.Models;
+using DoRing.Services;
+using DoRing.Views;
 
-namespace ActionRing;
+namespace DoRing;
 
 public partial class App : System.Windows.Application
 {
@@ -31,7 +31,7 @@ public partial class App : System.Windows.Application
 
         // A portable exe is easy to double-click twice; a second instance would
         // just fail to register the hotkey and sit there confusingly.
-        _singleInstance = new Mutex(initiallyOwned: true, @"Local\ActionRing.SingleInstance", out var isFirst);
+        _singleInstance = new Mutex(initiallyOwned: true, @"Local\DoRing.SingleInstance", out var isFirst);
         if (!isFirst)
         {
             Shutdown();
@@ -49,7 +49,7 @@ public partial class App : System.Windows.Application
         // is that nobody ever sees a big number, not that it settles eventually.
         ScheduleTrim(TimeSpan.FromMilliseconds(1200));
 
-        // "ActionRing.exe --show" opens the ring straight away. Handy when you
+        // "DoRing.exe --show" opens the ring straight away. Handy when you
         // want to look at the UI without the global hotkey in the way - eg. from
         // a script, or when another app has claimed the combo.
         if (e.Args.Any(a => string.Equals(a, "--show", StringComparison.OrdinalIgnoreCase)))
@@ -114,7 +114,7 @@ public partial class App : System.Windows.Application
         {
             Icon = LoadIcon(),
             Visible = true,
-            Text = $"Action Ring  -  {_config.HotKey}",
+            Text = $"DoRing  -  {_config.HotKey}",
         };
         icon.MouseUp += (_, args) =>
         {
@@ -207,7 +207,7 @@ public partial class App : System.Windows.Application
 
         _config = config;
         _ring?.Apply(_config);
-        if (_tray is not null) _tray.Text = $"Action Ring  -  {_config.HotKey}";
+        if (_tray is not null) _tray.Text = $"DoRing  -  {_config.HotKey}";
         RegisterHotKey();
         return null;
     }
@@ -224,7 +224,7 @@ public partial class App : System.Windows.Application
     {
         _config = RingConfig.Load();
         _ring?.Apply(_config);
-        if (_tray is not null) _tray.Text = $"Action Ring  -  {_config.HotKey}";
+        if (_tray is not null) _tray.Text = $"DoRing  -  {_config.HotKey}";
         RegisterHotKey();
     }
 
@@ -256,7 +256,7 @@ public partial class App : System.Windows.Application
     private void OnHotKey() => Ring().Toggle(_hotKeyModifiers, _hotKeyKey);
 
     private static void Warn(string message) =>
-        System.Windows.MessageBox.Show(message, "Action Ring",
+        System.Windows.MessageBox.Show(message, "DoRing",
             MessageBoxButton.OK, MessageBoxImage.Warning);
 
     // ---- teardown -------------------------------------------------------

@@ -1,4 +1,4 @@
-# Action Ring
+# DoRing
 
 A radial action menu for Windows — a compact ring of translucent, acrylic-styled
 icon buttons summoned by a global hotkey, in the spirit of Logitech's Actions Ring.
@@ -8,7 +8,7 @@ anywhere and run it.
 ## Running it
 
 ```
-dotnet run --project ActionRing
+dotnet run --project DoRing
 ```
 
 The app has no main window. It sits in the tray; press **Ctrl+Alt+Space** (or
@@ -35,10 +35,10 @@ circular target, since it means cancel.
 ## Building the portable exe
 
 ```
-dotnet publish ActionRing -c Release
+dotnet publish DoRing -c Release
 ```
 
-Output: `ActionRing/bin/Release/net10.0-windows/win-x64/publish/ActionRing.exe`,
+Output: `DoRing/bin/Release/net10.0-windows/win-x64/publish/DoRing.exe`,
 one self-contained file of roughly 66 MB.
 
 That size is close to the floor for a self-contained WPF app. Trimming is refused
@@ -55,19 +55,25 @@ supports adding, deleting, reordering, and grouping actions. Changes are validat
 saved, and applied immediately; hardware acceleration is the one setting that needs
 an app restart.
 
-The settings window still writes the portable `actionring.json` beside the exe.
+The **Presets** tab beside **Actions** and **Edit** saves the current action layout
+as a named snapshot. Switching a preset replaces the actual actions on the ring;
+you can also update it from later edits, rename it in place, or delete it. Presets
+contain actions and groups; the hotkey and appearance settings remain global. New
+configs include Everyday and Media presets.
+
+The settings window still writes the portable `doring.json` beside the exe.
 Choose **Edit JSON...** from the tray menu if you want to edit that file directly,
 then choose **Reload settings**.
 
 You can also open the settings window directly while debugging:
 
 ```
-ActionRing.exe --settings
+DoRing.exe --settings
 ```
 
 ## JSON reference
 
-On first run the app writes `actionring.json` next to the exe (kept beside the
+On first run the app writes `doring.json` next to the exe (kept beside the
 binary so the whole thing stays portable).
 
 ```jsonc
@@ -88,7 +94,15 @@ binary so the whole thing stays portable).
     { "Label": "Terminal", "Glyph": "", "Kind": "Launch", "Target": "wt.exe" },
     { "Label": "Copy",     "Glyph": "", "Kind": "Keys",   "Target": "Ctrl+C" },
     { "Label": "Docs",     "Glyph": "", "Kind": "Url",    "Target": "https://example.com" }
-  ]
+  ],
+  "Presets": [
+    {
+      "Id": "a-stable-generated-id",
+      "Name": "Writing",
+      "Actions": [ /* the saved action layout */ ]
+    }
+  ],
+  "ActivePresetId": "a-stable-generated-id"
 }
 ```
 
@@ -105,7 +119,7 @@ codepoint or an emoji. `Accent` on an individual action overrides the global one
 
 An action can display a file or application icon instead. Set `IconKind` to
 `AppIcon` and `IconPath` to an `.ico`, `.png`, other image, or `.exe` path. Relative
-paths are resolved beside `ActionRing.exe`; environment variables are expanded.
+paths are resolved beside `DoRing.exe`; environment variables are expanded.
 
 Button count is however long the array is. Add a tenth action and `OrbitRadius`
 widens on its own rather than the buttons shrinking to fit.
@@ -118,7 +132,7 @@ on a 14-core machine:
 | | working set | private | threads |
 | --- | --- | --- | --- |
 | Hello-world WPF app (the baseline, not our code) | 195 MB | 145 MB | 66 |
-| Action Ring, as first written | 195 MB | 145 MB | 66 |
+| DoRing, as first written | 195 MB | 145 MB | 66 |
 | GPU rendering off | 96 MB | 50 MB | 15 |
 | ...plus nothing WPF touched until first use | 61 MB briefly, then 5 MB | 14 MB | 14 |
 | While the ring is on screen | ~103 MB | 55 MB | 15 |
@@ -161,7 +175,7 @@ animation, and at this size a static radial gradient is indistinguishable.
 
 ## Debugging
 
-`ActionRing.exe --show` opens the ring immediately, without waiting for the hotkey.
+`DoRing.exe --show` opens the ring immediately, without waiting for the hotkey.
 
 One caveat if you script against it: a window shown this way cannot take the
 foreground (Windows only grants that off real user input), so it will not respond to
@@ -172,7 +186,7 @@ screenshot.
 ## Layout
 
 ```
-ActionRing/
+DoRing/
   App.xaml(.cs)             tray icon, hotkey registration, single-instance guard
   Views/RingWindow.xaml.cs  the ring: buttons, hub, label pill, hover, invoke
   Services/

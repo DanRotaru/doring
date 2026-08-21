@@ -10,8 +10,8 @@
          option and saves a NuGet dependency. -->
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\ring.ico</ApplicationIcon>
-    <AssemblyName>ActionRing</AssemblyName>
-    <RootNamespace>ActionRing</RootNamespace>
+    <AssemblyName>DoRing</AssemblyName>
+    <RootNamespace>DoRing</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- WFO0003 tells WinForms apps to set DPI mode in code instead of the
          manifest. WPF needs it in the manifest, and WinForms is only here for

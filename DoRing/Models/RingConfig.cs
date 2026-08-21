@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ActionRing.Models;
+namespace DoRing.Models;
 
 public enum ActionKind
 {
@@ -17,7 +17,7 @@ public enum ActionKind
     /// which fan out when the button is hovered.
     /// </summary>
     Group,
-    /// <summary>One of Action Ring's built-in Windows/media commands.</summary>
+    /// <summary>One of DoRing's built-in Windows/media commands.</summary>
     Command,
     /// <summary>Paste literal text into the previously focused window.</summary>
     PasteText,
@@ -112,6 +112,14 @@ public sealed class RingAction
     public bool IsClickable => Kind != ActionKind.Group;
 }
 
+/// <summary>A named snapshot of the actions that make up a ring.</summary>
+public sealed class RingPreset
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public List<RingAction> Actions { get; set; } = new();
+}
+
 public sealed class RingConfig
 {
     /// <summary>Global hotkey, e.g. "Ctrl+Alt+Space".</summary>
@@ -172,6 +180,12 @@ public sealed class RingConfig
 
     public List<RingAction> Actions { get; set; } = new();
 
+    /// <summary>Reusable action layouts. General appearance and hotkey settings stay global.</summary>
+    public List<RingPreset> Presets { get; set; } = new();
+
+    /// <summary>The preset most recently loaded into <see cref="Actions"/>, or null for a custom ring.</summary>
+    public string? ActivePresetId { get; set; }
+
     // ---- persistence ---------------------------------------------------
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -187,7 +201,7 @@ public sealed class RingConfig
 
     /// <summary>Config lives next to the .exe, so the whole app stays portable.</summary>
     public static string ConfigPath => Path.Combine(
-        AppContext.BaseDirectory, "actionring.json");
+        AppContext.BaseDirectory, "doring.json");
 
     public static RingConfig Load()
     {
@@ -196,10 +210,41 @@ public sealed class RingConfig
             if (File.Exists(ConfigPath))
             {
                 var json = File.ReadAllText(ConfigPath);
+                using var document = JsonDocument.Parse(json);
+                var hadPresets = document.RootElement.EnumerateObject().Any(property =>
+                    property.Name.Equals(nameof(Presets), StringComparison.OrdinalIgnoreCase));
                 var loaded = JsonSerializer.Deserialize<RingConfig>(json, JsonOptions);
                 if (loaded is not null)
                 {
+                    loaded.Actions ??= new();
+                    loaded.Presets ??= new();
+                    if (!hadPresets)
+                    {
+                        loaded.Presets =
+                        [
+                            new RingPreset
+                            {
+                                Id = "migrated-current",
+                                Name = "Current ring",
+                                Actions = loaded.Actions.Select(CloneAction).ToList(),
+                            },
+                            new RingPreset
+                            {
+                                Id = "default-media",
+                                Name = "Media",
+                                Actions = CreateMediaActions(),
+                            },
+                        ];
+                        loaded.ActivePresetId = "migrated-current";
+                    }
+                    foreach (var preset in loaded.Presets)
+                    {
+                        if (string.IsNullOrWhiteSpace(preset.Id)) preset.Id = Guid.NewGuid().ToString("N");
+                        preset.Actions ??= new();
+                    }
                     RemoveRetiredBrightnessActions(loaded.Actions);
+                    foreach (var preset in loaded.Presets)
+                        RemoveRetiredBrightnessActions(preset.Actions);
                     if (loaded.Actions.Count > 0) return loaded;
                 }
             }
@@ -251,8 +296,27 @@ public sealed class RingConfig
 
     public static RingConfig CreateDefault() => new()
     {
-        Actions =
+        Actions = CreateEverydayActions(),
+        Presets =
         {
+            new RingPreset
+            {
+                Id = "default-everyday",
+                Name = "Everyday",
+                Actions = CreateEverydayActions(),
+            },
+            new RingPreset
+            {
+                Id = "default-media",
+                Name = "Media",
+                Actions = CreateMediaActions(),
+            },
+        },
+        ActivePresetId = "default-everyday",
+    };
+
+    private static List<RingAction> CreateEverydayActions() =>
+    [
             new RingAction { Label = "Terminal", Glyph = "", Kind = ActionKind.Launch, Target = "wt.exe" },
             new RingAction { Label = "Explorer", Glyph = "", Kind = ActionKind.Launch, Target = "explorer.exe" },
             new RingAction { Label = "Copy",     Glyph = "", Kind = ActionKind.Keys,   Target = "Ctrl+C" },
@@ -286,6 +350,31 @@ public sealed class RingConfig
             },
 
             new RingAction { Label = "Docs", Glyph = "", Kind = ActionKind.Url, Target = "https://learn.microsoft.com/dotnet/desktop/wpf/" },
-        }
+    ];
+
+    private static List<RingAction> CreateMediaActions() =>
+    [
+        new RingAction { Label = "Play/Pause", Glyph = "", Kind = ActionKind.Command, Target = "MediaPlayPause", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "YouTube", Glyph = "", Kind = ActionKind.Url, Target = "https://youtube.com/" },
+        new RingAction { Label = "Next", Glyph = "", Kind = ActionKind.Command, Target = "MediaNextTrack", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "Mute", Glyph = "", Kind = ActionKind.Command, Target = "VolumeMute", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "Volume", Glyph = "\uE995", Kind = ActionKind.Command, Target = "Volume", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "Stop", Glyph = "", Kind = ActionKind.Command, Target = "MediaStop", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "Previous", Glyph = "", Kind = ActionKind.Command, Target = "MediaPreviousTrack", ScrollBehavior = ScrollBehavior.Volume },
+        new RingAction { Label = "Spotify", Glyph = "", Kind = ActionKind.Launch, Target = "Spotify" },
+    ];
+
+    private static RingAction CloneAction(RingAction action) => new()
+    {
+        Label = action.Label,
+        Glyph = action.Glyph,
+        IconKind = action.IconKind,
+        IconPath = action.IconPath,
+        Kind = action.Kind,
+        Target = action.Target,
+        Arguments = action.Arguments,
+        ScrollBehavior = action.ScrollBehavior,
+        Accent = action.Accent,
+        Items = action.Items.Select(CloneAction).ToList(),
     };
 }

@@ -1,6 +1,6 @@
-using ActionRing.Interop;
+using DoRing.Interop;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>
 /// Hands idle memory back to the OS.

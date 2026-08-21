@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>
 /// Places round buttons evenly around a circle. Angles run clockwise from

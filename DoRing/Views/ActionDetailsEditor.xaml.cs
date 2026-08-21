@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
-using ActionRing.Models;
+using DoRing.Models;
 
-namespace ActionRing.Views;
+namespace DoRing.Views;
 
 public partial class ActionDetailsEditor : UserControl
 {

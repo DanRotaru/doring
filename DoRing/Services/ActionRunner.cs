@@ -3,10 +3,10 @@ using System.Globalization;
 using System.Net;
 using System.Windows;
 using System.Windows.Input;
-using ActionRing.Interop;
-using ActionRing.Models;
+using DoRing.Interop;
+using DoRing.Models;
 
-namespace ActionRing.Services;
+namespace DoRing.Services;
 
 /// <summary>Executes a chosen ring action.</summary>
 public static class ActionRunner

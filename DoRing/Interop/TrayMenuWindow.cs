@@ -1,6 +1,6 @@
 using System.Windows.Forms;
 
-namespace ActionRing.Interop;
+namespace DoRing.Interop;
 
 /// <summary>
 /// Supplies the HWND required to own and correctly dismiss a native tray menu.
@@ -12,7 +12,7 @@ internal sealed class TrayMenuWindow : NativeWindow, IDisposable
     {
         CreateHandle(new CreateParams
         {
-            Caption = "ActionRing.TrayMenuOwner",
+            Caption = "DoRing.TrayMenuOwner",
             Style = NativeMethods.WS_POPUP,
             ExStyle = NativeMethods.WS_EX_TOOLWINDOW,
         });

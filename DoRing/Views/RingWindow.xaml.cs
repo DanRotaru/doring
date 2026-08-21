@@ -8,11 +8,11 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using ActionRing.Interop;
-using ActionRing.Models;
-using ActionRing.Services;
+using DoRing.Interop;
+using DoRing.Models;
+using DoRing.Services;
 
-namespace ActionRing.Views;
+namespace DoRing.Views;
 
 public partial class RingWindow : Window
 {
@@ -1174,7 +1174,7 @@ public partial class RingWindow : Window
     {
         Hide();
 
-        if (action.Kind == ActionKind.Command && action.Target == "ActionRingSettings")
+        if (action.Kind == ActionKind.Command && action.Target == "DoRingSettings")
         {
             Dispatcher.BeginInvoke(_showSettings);
             return;
