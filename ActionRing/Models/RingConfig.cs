@@ -100,6 +100,12 @@ public sealed class RingConfig
     /// <summary>Show the hovered action's name on a pill below the ring.</summary>
     public bool ShowLabels { get; set; } = true;
 
+    /// <summary>
+    /// When a group fans open, fade its siblings almost all the way out instead
+    /// of holding them back slightly, so only the open group reads.
+    /// </summary>
+    public bool FadeOthersOnGroupOpen { get; set; } = false;
+
     /// <summary>Base tint of the acrylic surface.</summary>
     public string Tint { get; set; } = "#26262E";
 

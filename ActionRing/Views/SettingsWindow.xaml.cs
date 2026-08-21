@@ -282,6 +282,11 @@ public partial class SettingsWindow : Window
     public SettingsWindow(RingConfig config, Func<RingConfig, string?> save)
     {
         InitializeComponent();
+        RingDetailsEditor.ActionCreated += (_, action) =>
+        {
+            SelectRingAction(action);
+            ShowRingEditTab();
+        };
         // Resolve the installed icon font once while the window is being
         // created. Opening the picker then only shows an already-built,
         // virtualized six-column list instead of enumerating glyphs on demand.
@@ -315,6 +320,7 @@ public partial class SettingsWindow : Window
         AccentBox.Text = config.Accent;
         TintOpacitySlider.Value = config.TintOpacity;
         ShowLabelsCheck.IsChecked = config.ShowLabels;
+        FadeOthersOnGroupOpenCheck.IsChecked = config.FadeOthersOnGroupOpen;
         HardwareAccelerationCheck.IsChecked = config.HardwareAcceleration;
     }
 
@@ -325,7 +331,7 @@ public partial class SettingsWindow : Window
             box.TextChanged += (_, _) => UpdateResetButtons();
 
         foreach (var check in new[] { HoldToActivateCheck, FollowCursorCheck,
-                     ShowLabelsCheck, HardwareAccelerationCheck })
+                     ShowLabelsCheck, FadeOthersOnGroupOpenCheck, HardwareAccelerationCheck })
         {
             check.Checked += (_, _) => UpdateResetButtons();
             check.Unchecked += (_, _) => UpdateResetButtons();
@@ -347,6 +353,7 @@ public partial class SettingsWindow : Window
         ResetAccent.Visibility = Changed(AccentBox.Text, _defaults.Accent, ignoreCase: true);
         ResetTintOpacity.Visibility = Changed(TintOpacitySlider.Value, _defaults.TintOpacity);
         ResetShowLabels.Visibility = Changed(ShowLabelsCheck.IsChecked == true, _defaults.ShowLabels);
+        ResetFadeOthersOnGroupOpen.Visibility = Changed(FadeOthersOnGroupOpenCheck.IsChecked == true, _defaults.FadeOthersOnGroupOpen);
         ResetHardwareAcceleration.Visibility = Changed(HardwareAccelerationCheck.IsChecked == true, _defaults.HardwareAcceleration);
     }
 
@@ -384,6 +391,7 @@ public partial class SettingsWindow : Window
             case "Accent": AccentBox.Text = _defaults.Accent; break;
             case "TintOpacity": TintOpacitySlider.Value = _defaults.TintOpacity; break;
             case "ShowLabels": ShowLabelsCheck.IsChecked = _defaults.ShowLabels; break;
+            case "FadeOthersOnGroupOpen": FadeOthersOnGroupOpenCheck.IsChecked = _defaults.FadeOthersOnGroupOpen; break;
             case "HardwareAcceleration": HardwareAccelerationCheck.IsChecked = _defaults.HardwareAcceleration; break;
         }
         e.Handled = true;
@@ -509,6 +517,8 @@ public partial class SettingsWindow : Window
         GeneralIndicator.Visibility = Visibility.Collapsed;
         ActionsIndicator.Visibility = Visibility.Collapsed;
         ActionsRingIndicator.Visibility = Visibility.Visible;
+        ShowRingActionsTab();
+        UpdateRingSelectionUi();
         RenderRingDesigner();
     }
 
@@ -637,7 +647,8 @@ public partial class SettingsWindow : Window
         }
 
         _selectedAction = null;
-        RingInlineEditor.Visibility = Visibility.Collapsed;
+        _expandedGroup = null;
+        UpdateRingSelectionUi();
         ActionEditor.Visibility = Visibility.Collapsed;
         EmptyActionMessage.Visibility = Visibility.Visible;
         RenderRingDesigner();
@@ -878,12 +889,18 @@ public partial class SettingsWindow : Window
     {
         if (!RecentlyCompletedDrag() && sender is FrameworkElement { Tag: ActionItemViewModel action })
         {
+            if (ReferenceEquals(_selectedAction, action))
+            {
+                DeselectRingAction();
+                e.Handled = true;
+                return;
+            }
+
             if (action.Parent is null && action.Children.Count > 0)
             {
                 _selectedAction = action;
-                _expandedGroup = ReferenceEquals(_expandedGroup, action) ? null : action;
-                RingInlineEditor.DataContext = action;
-                RingInlineEditor.Visibility = Visibility.Visible;
+                _expandedGroup = action;
+                UpdateRingSelectionUi();
                 RenderRingDesigner();
             }
             else
@@ -898,10 +915,64 @@ public partial class SettingsWindow : Window
     {
         _selectedAction = action;
         _expandedGroup = action.Children.Count > 0 ? action : action.Parent;
-        RingInlineEditor.DataContext = action;
-        RingInlineEditor.Visibility = Visibility.Visible;
+        UpdateRingSelectionUi();
         RenderRingDesigner();
     }
+
+    private void UpdateRingSelectionUi()
+    {
+        if (SelectedRingCommands is null) return;
+        var selected = _selectedAction is not null;
+        SelectedRingCommands.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        RingDetailsEditor.DataContext = _selectedAction;
+        RingDetailsEditor.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        RingEditEmptyMessage.Visibility = selected ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void DeselectRingAction()
+    {
+        _selectedAction = null;
+        _expandedGroup = null;
+        UpdateRingSelectionUi();
+        RenderRingDesigner();
+    }
+
+    private void RingActionsTab_Click(object sender, RoutedEventArgs e) => ShowRingActionsTab();
+    private void RingEditTab_Click(object sender, RoutedEventArgs e) => ShowRingEditTab();
+
+    private void ShowRingActionsTab()
+    {
+        RingActionsTabContent.Visibility = Visibility.Visible;
+        RingEditTabContent.Visibility = Visibility.Collapsed;
+        RingActionsTabIndicator.Visibility = Visibility.Visible;
+        RingEditTabIndicator.Visibility = Visibility.Collapsed;
+        RingActionsTab.Foreground = Brushes.White;
+        RingEditTab.Foreground = (Brush)FindResource("MutedBrush");
+    }
+
+    private void ShowRingEditTab()
+    {
+        RingActionsTabContent.Visibility = Visibility.Collapsed;
+        RingEditTabContent.Visibility = Visibility.Visible;
+        RingActionsTabIndicator.Visibility = Visibility.Collapsed;
+        RingEditTabIndicator.Visibility = Visibility.Visible;
+        RingActionsTab.Foreground = (Brush)FindResource("MutedBrush");
+        RingEditTab.Foreground = Brushes.White;
+    }
+
+    private void NewRingAction_Click(object sender, RoutedEventArgs e)
+    {
+        var added = NewAction(null);
+        Actions.Add(added);
+        SelectRingAction(added);
+        ShowRingEditTab();
+    }
+
+    private void RingEditCommand_Click(object sender, RoutedEventArgs e) => ShowRingEditTab();
+
+    private void RingRemoveCommand_Click(object sender, RoutedEventArgs e) => DeleteAction_Click(sender, e);
+
+    private void DeselectRingAction_Click(object sender, RoutedEventArgs e) => DeselectRingAction();
 
     private void ActionDragSource_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -1455,13 +1526,6 @@ public partial class SettingsWindow : Window
         SelectRingAction(moved);
     }
 
-    private void RingAddBlank_Click(object sender, RoutedEventArgs e)
-    {
-        var added = NewAction(null);
-        Actions.Add(added);
-        SelectRingAction(added);
-    }
-
     private static RingAction CloneAction(RingAction action) => new()
     {
         Label = action.Label, Glyph = action.Glyph, IconKind = action.IconKind,
@@ -1470,17 +1534,10 @@ public partial class SettingsWindow : Window
         Items = action.Items.Select(CloneAction).ToList(),
     };
 
-    private void OpenFullActionEditor_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedAction is null) return;
-        var action = _selectedAction;
-        ShowActions();
-        Edit(action);
-    }
-
     private void ActionsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         _selectedAction = e.NewValue as ActionItemViewModel;
+        UpdateRingSelectionUi();
         ActionEditor.DataContext = _selectedAction;
         ActionEditor.Visibility = _selectedAction is null ? Visibility.Collapsed : Visibility.Visible;
         EmptyActionMessage.Visibility = _selectedAction is null ? Visibility.Visible : Visibility.Collapsed;
@@ -1643,9 +1700,11 @@ public partial class SettingsWindow : Window
         if (_selectedAction.Parent is null) Actions.Remove(_selectedAction);
         else _selectedAction.Parent.Children.Remove(_selectedAction);
         _selectedAction = null;
+        _expandedGroup = null;
         ActionEditor.Visibility = Visibility.Collapsed;
         EmptyActionMessage.Visibility = Visibility.Visible;
-        RingInlineEditor.Visibility = Visibility.Collapsed;
+        UpdateRingSelectionUi();
+        RenderRingDesigner();
     }
 
     private void MoveUp_Click(object sender, RoutedEventArgs e) => MoveSelected(-1);
@@ -1709,6 +1768,7 @@ public partial class SettingsWindow : Window
             HotKey = HotKeyBox.Text.Trim(), HoldToActivate = HoldToActivateCheck.IsChecked == true,
             HoldThresholdMs = threshold, ButtonRadius = buttonRadius, OrbitRadius = orbitRadius,
             HubRadius = hubRadius, ShowLabels = ShowLabelsCheck.IsChecked == true,
+            FadeOthersOnGroupOpen = FadeOthersOnGroupOpenCheck.IsChecked == true,
             Tint = TintBox.Text.Trim(), TintOpacity = TintOpacitySlider.Value,
             Accent = AccentBox.Text.Trim(), FollowCursor = FollowCursorCheck.IsChecked == true,
             HardwareAcceleration = HardwareAccelerationCheck.IsChecked == true,

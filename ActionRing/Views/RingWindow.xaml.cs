@@ -57,6 +57,7 @@ public partial class RingWindow : Window
     private const double HoverScale = 1.12;
     private const double OpenFrom = 0.86;    // scale the ring grows from
     private const double DimmedSibling = 0.8; // buttons outside the open group
+    private const double FadedSibling = 0.12; // ...when "fade others" is on
     private const double SubScale = 0.76;    // child button size, relative to a parent
     private const double SubGap = 8;         // clearance between the two orbits
     private const double LabelGap = 10;      // button edge to its label
@@ -947,9 +948,11 @@ public partial class RingWindow : Window
             Emphasise(_buttons[i], on);
 
             // Pull focus toward the open group by holding the rest back - but
-            // only slightly. Fading them hard makes the ring look broken.
+            // only slightly by default, since fading them hard makes the ring
+            // look broken. Some people want exactly that, hence the option.
+            var dimmed = _config.FadeOthersOnGroupOpen ? FadedSibling : DimmedSibling;
             _buttons[i].Host.Opacity =
-                openGroup != None && i != openGroup ? DimmedSibling : 1.0;
+                openGroup != None && i != openGroup ? dimmed : 1.0;
         }
 
         foreach (var (parentIndex, group) in _groups)

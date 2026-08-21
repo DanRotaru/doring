@@ -70,8 +70,8 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="Margin" Value="8,2" />
-            <Setter Property="Padding" Value="4,10" />
+            <Setter Property="Margin" Value="4,2" />
+            <Setter Property="Padding" Value="4,9" />
             <Setter Property="Height" Value="40" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -218,8 +218,8 @@
 
                 <Border Background="Transparent" BorderThickness="0">
                     <DockPanel>
-                        <StackPanel DockPanel.Dock="Top" Margin="8,18,8,0">
-                            <TextBlock Text="SETTINGS" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="14,0,0,8" />
+                        <StackPanel DockPanel.Dock="Top" Margin="4,10,4,0">
+                            <TextBlock Text="SETTINGS" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="10,0,0,8" />
                             <Button x:Name="GeneralNav" Style="{StaticResource NavButton}" Click="GeneralNav_Click">
                                 <Grid>
                                     <Border x:Name="GeneralIndicator" Width="3" Height="18" CornerRadius="2"
@@ -266,7 +266,7 @@
                 <ScrollViewer x:Name="GeneralPage" Grid.Column="1" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch"
                               Focusable="False" FocusVisualStyle="{x:Null}" BorderThickness="0">
-                    <StackPanel Margin="42,30,42,36">
+                    <StackPanel Margin="32,26,32,36">
                         <TextBlock Text="General" Style="{StaticResource PageTitle}" />
                         <TextBlock Text="Choose how the ring opens, behaves, and looks."
                                    Foreground="{StaticResource MutedBrush}" Margin="0,0,0,30" />
@@ -381,6 +381,14 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <CheckBox x:Name="ShowLabelsCheck" Style="{StaticResource ToggleSwitch}">
                                     <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Action labels" Style="{StaticResource SettingName}" /><Button x:Name="ResetShowLabels" Tag="ShowLabels" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Show an action's name when it is hovered." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="FadeOthersOnGroupOpenCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Fade other actions with a group open" Style="{StaticResource SettingName}" /><Button x:Name="ResetFadeOthersOnGroupOpen" Tag="FadeOthersOnGroupOpen" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Make every other action nearly transparent while a group is open." Style="{StaticResource Caption}" /></StackPanel>
                                 </CheckBox>
                             </Grid>
                         </Border>
@@ -630,13 +638,32 @@
                                         HorizontalAlignment="Center" VerticalAlignment="Center"
                                         DragOver="RingTarget_DragOver" />
                                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16"
-                                        Padding="12,7" CornerRadius="6" Background="#12FFFFFF"
-                                        BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
-                                        IsHitTestVisible="False">
+                                        Padding="5" CornerRadius="8" Background="#12FFFFFF"
+                                        BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                   Margin="0,0,7,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Drop here to add to the ring" Foreground="{StaticResource MutedBrush}" />
+                                        <Button Click="NewRingAction_Click" Padding="10,6" ToolTip="Create a new action">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="New" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <StackPanel x:Name="SelectedRingCommands" Orientation="Horizontal" Visibility="Collapsed">
+                                            <Button Click="RingEditCommand_Click" Padding="10,6" Margin="4,0,0,0" ToolTip="Edit selected action">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Edit" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="RingRemoveCommand_Click" Padding="10,6" Margin="4,0,0,0" ToolTip="Remove selected action">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Remove" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="DeselectRingAction_Click" Content="&#xE711;"
+                                                    FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                    Padding="10,6" Margin="4,0,0,0" ToolTip="Clear selection" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -644,21 +671,39 @@
 
                         <Border Grid.Column="2" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}"
                                 BorderThickness="1" CornerRadius="10" Padding="12">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                          BorderThickness="0" FocusVisualStyle="{x:Null}">
-                                <StackPanel>
-                                    <TextBlock Text="Actions" FontSize="18" FontWeight="SemiBold" Margin="4,2,0,4" />
-                                    <TextBlock Text="Drag an item onto a ring position."
-                                               Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="4,0,0,12" />
-
-                                    <Button Click="RingAddBlank_Click" HorizontalAlignment="Stretch" Margin="0,2,0,10">
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                       Margin="0,0,7,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="New custom action" />
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button x:Name="RingActionsTab" Click="RingActionsTab_Click" Background="Transparent"
+                                            BorderThickness="0" Padding="8,5" FocusVisualStyle="{x:Null}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE8FD;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Actions" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <Border x:Name="RingActionsTabIndicator" Height="3" CornerRadius="2"
+                                                    Background="{StaticResource AccentBrush}" Margin="0,7,0,-5" />
                                         </StackPanel>
                                     </Button>
+                                    <Button x:Name="RingEditTab" Click="RingEditTab_Click" Background="Transparent"
+                                            BorderThickness="0" Padding="8,5" Margin="6,0,0,0" FocusVisualStyle="{x:Null}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Edit" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <Border x:Name="RingEditTabIndicator" Height="3" CornerRadius="2"
+                                                    Background="{StaticResource AccentBrush}" Margin="0,7,0,-5" Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
 
+                                <ScrollViewer x:Name="RingActionsTabContent" Grid.Row="1"
+                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                              BorderThickness="0" FocusVisualStyle="{x:Null}">
+                                    <StackPanel>
+                                        <TextBlock Text="Drag an item onto a ring position."
+                                                   Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="4,0,0,12" />
                                     <ItemsControl ItemsSource="{Binding ActionCategories}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -700,28 +745,16 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
 
-                                    <Border x:Name="RingInlineEditor" Visibility="Collapsed" Margin="0,10,0,0" Padding="12"
-                                            Background="#0DFFFFFF" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1" CornerRadius="7">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,12">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                <TextBlock Text="Selected action" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                <Button Grid.Column="1" Content="&#xE74D;" ToolTip="Delete" Style="{StaticResource IconButton}"
-                                                        Click="DeleteAction_Click" />
-                                            </Grid>
-                                            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" />
-                                            <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,10" />
-                                            <TextBlock Text="Type" FontWeight="SemiBold" FontSize="12" />
-                                            <ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind, UpdateSourceTrigger=PropertyChanged}"
-                                                      Margin="0,5,0,10" />
-                                            <TextBlock Text="Target" FontWeight="SemiBold" FontSize="12" />
-                                            <TextBox Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Margin="0,5,0,10" />
-                                            <Button Content="Open full action editor" Click="OpenFullActionEditor_Click" HorizontalAlignment="Stretch" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </ScrollViewer>
+                                <Grid x:Name="RingEditTabContent" Grid.Row="1" Visibility="Collapsed">
+                                    <TextBlock x:Name="RingEditEmptyMessage" Text="Select a ring action to edit it."
+                                               Foreground="{StaticResource MutedBrush}" TextAlignment="Center"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                    <local:ActionDetailsEditor x:Name="RingDetailsEditor" Visibility="Collapsed" />
+                                </Grid>
+                            </Grid>
                         </Border>
                     </Grid>
                     <Canvas x:Name="DragPreviewLayer" Grid.RowSpan="2" Panel.ZIndex="1000"
