@@ -297,29 +297,6 @@ public partial class RingWindow : Window
             RenderTransform = scale,
         };
 
-        // A gradient disc standing in for a DropShadowEffect. Sixteen real blur
-        // effects would each allocate an intermediate render surface and, under
-        // software rendering, blur on the CPU every frame of the open animation.
-        // A static radial gradient is indistinguishable at this size and free.
-        host.Children.Add(new Ellipse
-        {
-            Width = radius * 2.7,
-            Height = radius * 2.7,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            RenderTransform = new TranslateTransform(0, radius * 0.09),
-            Fill = new RadialGradientBrush
-            {
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(0x59, 0, 0, 0), 0.0),
-                    new GradientStop(Color.FromArgb(0x4A, 0, 0, 0), 0.37),
-                    new GradientStop(Color.FromArgb(0x22, 0, 0, 0), 0.60),
-                    new GradientStop(Color.FromArgb(0x00, 0, 0, 0), 1.0),
-                },
-            },
-        });
-
         // Flat tint, luminosity sheen, grain, then the accent that fades in on
         // hover - the same layering the segmented version used, per circle.
         host.Children.Add(new Ellipse
