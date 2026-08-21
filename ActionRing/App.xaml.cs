@@ -106,7 +106,15 @@ public partial class App : System.Windows.Application
 
     private NotifyIcon CreateTrayIcon()
     {
-        var menu = new ContextMenuStrip();
+        var menu = new ContextMenuStrip
+        {
+            BackColor = System.Drawing.Color.FromArgb(0x29, 0x29, 0x29),
+            ForeColor = System.Drawing.Color.FromArgb(0xF5, 0xF5, 0xF5),
+            Renderer = new DarkTrayMenuRenderer(),
+            ShowImageMargin = false,
+            ShowCheckMargin = false,
+            Padding = new Padding(2),
+        };
         menu.Items.Add("Show ring", null, (_, _) => Ring().ShowRing());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings...", null, (_, _) => ShowSettings());
@@ -114,6 +122,13 @@ public partial class App : System.Windows.Application
         menu.Items.Add("Reload settings", null, (_, _) => ReloadConfig());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Shutdown());
+
+        foreach (ToolStripItem item in menu.Items)
+        {
+            item.ForeColor = menu.ForeColor;
+            if (item is ToolStripMenuItem)
+                item.Padding = new Padding(10, 4, 24, 4);
+        }
 
         var icon = new NotifyIcon
         {

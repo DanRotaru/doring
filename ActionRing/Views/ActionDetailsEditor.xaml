@@ -8,7 +8,8 @@
         <SolidColorBrush x:Key="EditorStrokeBrush" Color="#1AFFFFFF" />
     </UserControl.Resources>
     <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Padding="4,2,10,8">
+                  HorizontalScrollBarVisibility="Disabled" BorderThickness="0"
+                  Margin="0,0,-8,0" Padding="4,2,18,8">
         <StackPanel>
             <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

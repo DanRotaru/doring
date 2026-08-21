@@ -603,7 +603,8 @@
 
                 <!-- ACTIONS RING: an alternate, visual editor over the same Actions collection. -->
                 <Grid x:Name="ActionsRingPage" Grid.Column="1" Visibility="Collapsed" Margin="32,26,32,0"
-                      AllowDrop="True" PreviewDragOver="ActionsRingPage_PreviewDragOver"
+                      AllowDrop="True"
+                      PreviewDragOver="ActionsRingPage_PreviewDragOver"
                       PreviewDrop="ActionsRingPage_PreviewDrop">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <StackPanel Margin="0,0,0,18">
@@ -648,20 +649,20 @@
                                         Padding="5" CornerRadius="8" Background="#12FFFFFF"
                                         BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Click="NewRingAction_Click" Padding="10,6" ToolTip="Create a new action">
+                                        <Button x:Name="NewRingActionButton" Click="NewRingAction_Click" Padding="10,6" ToolTip="Create a new action">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="New" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>
                                         <StackPanel x:Name="SelectedRingCommands" Orientation="Horizontal" Visibility="Collapsed">
-                                            <Button Click="RingEditCommand_Click" Padding="10,6" Margin="4,0,0,0" ToolTip="Edit selected action">
+                                            <Button x:Name="RingEditCommandButton" Click="RingEditCommand_Click" Padding="10,6" Margin="4,0,4,0" ToolTip="Edit selected action">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
                                                     <TextBlock Text="Edit" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Button>
-                                            <Button Click="RingRemoveCommand_Click" Padding="10,6" Margin="4,0,0,0" ToolTip="Remove selected action">
+                                            <Button Click="RingRemoveCommand_Click" Padding="10,6" Margin="0" ToolTip="Remove selected action">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,2,6,0" VerticalAlignment="Center" />
                                                     <TextBlock Text="Remove" VerticalAlignment="Center" />
@@ -707,7 +708,8 @@
 
                                 <ScrollViewer x:Name="RingActionsTabContent" Grid.Row="1"
                                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                              BorderThickness="0" FocusVisualStyle="{x:Null}">
+                                              BorderThickness="0" FocusVisualStyle="{x:Null}"
+                                              Margin="0,0,-8,0" Padding="0,0,16,0">
                                     <StackPanel>
                                         <TextBlock Text="Select an item or drag it onto a ring position."
                                                    Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="4,0,0,12" />
@@ -757,6 +759,28 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    <Button DataContext="{Binding ActionRingSettingsPreset}"
+                                            PreviewMouseLeftButtonDown="ActionDragSource_PreviewMouseLeftButtonDown"
+                                            PreviewMouseMove="ActionDragSource_PreviewMouseMove"
+                                            Click="PresetAction_Click"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                            Padding="9,7" Margin="0,0,0,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="&#xE76F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                       FontSize="12" Opacity="0.38"
+                                                       HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding IconText}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI"
+                                                       FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="2" Margin="8,0">
+                                                <TextBlock Text="{Binding Action.Label}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
+                                                           FontSize="10" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="3" Text="&#xE72A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                       Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
                                     </StackPanel>
                                 </ScrollViewer>
 

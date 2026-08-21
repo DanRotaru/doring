@@ -110,6 +110,7 @@ public static class ActionRunner
             case "MouseMiddleClick": SendMouseButton(NativeMethods.MOUSEEVENTF_MIDDLEDOWN, NativeMethods.MOUSEEVENTF_MIDDLEUP); break;
             case "MouseCenter": NativeMethods.SetCursorPos(NativeMethods.GetSystemMetrics(0) / 2, NativeMethods.GetSystemMetrics(1) / 2); break;
             case "WindowCenter": CenterForegroundWindow(); break;
+            case "WindowsSettings": Start("ms-settings:", ""); break;
             case "ClearClipboard": Clipboard.Clear(); break;
             default: SendCombo(command); break;
         }

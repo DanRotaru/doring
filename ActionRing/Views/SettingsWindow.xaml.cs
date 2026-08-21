@@ -30,6 +30,10 @@ public sealed record ActionPreset(RingAction Action)
         ? "Open any app, file or folder"
         : Action.Target == "ActionRingSettings"
             ? "Open Action Ring settings"
+        : Action.Target == "WindowsSettings"
+            ? "Open Windows settings"
+        : Action.ScrollBehavior == ScrollBehavior.Brightness
+            ? "Control Brightness with the mouse scroll"
         : Action.Target;
 }
 
@@ -130,6 +134,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     {
         ActionKind.Launch => "Open app, file, or folder", ActionKind.Url => "Open web page",
         ActionKind.Keys => "Keyboard shortcut",
+        ActionKind.Command when Target == "ActionRingSettings" => "Action Ring Settings",
         ActionKind.Command when ScrollBehavior == ScrollBehavior.Volume => "Media & Volume Action",
         ActionKind.Command => "Windows command",
         ActionKind.PasteText => "Paste text", ActionKind.MousePosition => "Move mouse cursor",
@@ -345,6 +350,7 @@ public partial class SettingsWindow : Window
     private readonly List<DesignerTarget> _designerTargets = new();
     private readonly List<System.Windows.Shapes.Line> _designerGroupLines = new();
     private readonly List<System.Windows.Shapes.Ellipse> _dropOutlines = new();
+    private readonly HashSet<ActionItemViewModel> _ringSelection = new();
     private bool _restoringActions;
     private TextBox? _colorTarget;
     private double _pickerHue;
@@ -373,6 +379,7 @@ public partial class SettingsWindow : Window
         Actions = new ObservableCollection<ActionItemViewModel>(
             config.Actions.Select(action => new ActionItemViewModel(action)));
         ActionCategories = CreateActionCategories();
+        ActionRingSettingsPreset = SettingsPreset();
         Actions.CollectionChanged += Actions_CollectionChanged;
         foreach (var action in Actions) WatchAction(action);
         DataContext = this;
@@ -384,6 +391,7 @@ public partial class SettingsWindow : Window
 
     public ObservableCollection<ActionItemViewModel> Actions { get; }
     public IReadOnlyList<ActionPresetCategory> ActionCategories { get; }
+    public ActionPreset ActionRingSettingsPreset { get; }
     private void LoadGeneral(RingConfig config)
     {
         HotKeyBox.Text = config.HotKey;
@@ -609,7 +617,6 @@ public partial class SettingsWindow : Window
             Preset("Next", "", ActionKind.Command, "MediaNextTrack", scroll: ScrollBehavior.Volume),
             Preset("Stop", "", ActionKind.Command, "MediaStop", scroll: ScrollBehavior.Volume),
             Preset("Volume", "\uE995", ActionKind.Command, "Volume", scroll: ScrollBehavior.Volume),
-            SettingsPreset(ScrollBehavior.Volume),
         ], "Mouse scroll on any of these items will change the volume."),
         new("OPEN",
         [
@@ -620,9 +627,7 @@ public partial class SettingsWindow : Window
             Preset("Task Manager", "", ActionKind.Launch, "taskmgr.exe"),
             Preset("Task View", "", ActionKind.Keys, "Win+Tab"),
             Preset("Windows Run", "", ActionKind.Keys, "Win+R"),
-            Preset("Windows Settings", "", ActionKind.Launch, "ms-settings:"),
             Preset("Control Panel", "", ActionKind.Launch, "control.exe"),
-            SettingsPreset(),
         ]),
         new("WINDOWS",
         [
@@ -637,7 +642,7 @@ public partial class SettingsWindow : Window
             Preset("Maximize window", "\uE922", ActionKind.Keys, "Win+Up"),
             Preset("Minimize window", "", ActionKind.Keys, "Win+Down"),
             Preset("Move window to center", "\uE7C2", ActionKind.Command, "WindowCenter"),
-            SettingsPreset(),
+            Preset("Settings", "\uE713", ActionKind.Command, "WindowsSettings"),
         ]),
         new("SYSTEM",
         [
@@ -647,7 +652,6 @@ public partial class SettingsWindow : Window
             Preset("Search", "", ActionKind.Keys, "Win+S"),
             Preset("Project display", "", ActionKind.Keys, "Win+P"),
             Preset("Accessibility", "", ActionKind.Keys, "Win+U"),
-            SettingsPreset(),
         ]),
         new("MOUSE",
         [
@@ -656,7 +660,6 @@ public partial class SettingsWindow : Window
             Preset("Right click", "\uE962", ActionKind.Command, "MouseRightClick"),
             Preset("Middle click", "\uE962", ActionKind.Command, "MouseMiddleClick"),
             Preset("Move to screen center", "\uE962", ActionKind.Command, "MouseCenter"),
-            SettingsPreset(),
         ]),
         new("KEYBOARD",
         [
@@ -666,7 +669,6 @@ public partial class SettingsWindow : Window
             Preset("Undo", "", ActionKind.Keys, "Ctrl+Z"),
             Preset("Redo", "", ActionKind.Keys, "Ctrl+Y"),
             Preset("Select all", "", ActionKind.Keys, "Ctrl+A"),
-            SettingsPreset(),
         ]),
         new("DATE AND TIME",
         [
@@ -675,7 +677,6 @@ public partial class SettingsWindow : Window
             Preset("Paste Week number", "", ActionKind.DateTime, "week"),
             Preset("Paste current time", "\uE917", ActionKind.DateTime, "HH:mm:ss"),
             Preset("Paste date and time", "\uEC92", ActionKind.DateTime, "yyyy-MM-dd HH:mm:ss"),
-            SettingsPreset(),
         ]),
         new("CLIPBOARD",
         [
@@ -689,7 +690,6 @@ public partial class SettingsWindow : Window
             Preset("Lowercase clipboard", "\uE8D2", ActionKind.Clipboard, "lower"),
             Preset("Trim clipboard", "\uE78A", ActionKind.Clipboard, "trim"),
             Preset("Clipboard history", "", ActionKind.Keys, "Win+V"),
-            SettingsPreset(),
         ]),
     ];
 
@@ -697,8 +697,8 @@ public partial class SettingsWindow : Window
         string arguments = "", ScrollBehavior scroll = ScrollBehavior.None) =>
         new(new RingAction { Label = label, Glyph = glyph, Kind = kind, Target = target, Arguments = arguments, ScrollBehavior = scroll });
 
-    private static ActionPreset SettingsPreset(ScrollBehavior scroll = ScrollBehavior.None) =>
-        Preset("Settings", "\uE713", ActionKind.Command, "ActionRingSettings", scroll: scroll);
+    private static ActionPreset SettingsPreset() =>
+        Preset("Action Ring Settings", "\uE713", ActionKind.Command, "ActionRingSettings");
 
     private void Actions_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -781,6 +781,7 @@ public partial class SettingsWindow : Window
         }
 
         _selectedAction = null;
+        _ringSelection.Clear();
         _expandedGroup = null;
         UpdateRingSelectionUi();
         ActionEditor.Visibility = Visibility.Collapsed;
@@ -834,7 +835,7 @@ public partial class SettingsWindow : Window
 
         void AddButton(ActionItemViewModel action, Point point, double radius)
         {
-            var selected = ReferenceEquals(action, _selectedAction);
+            var selected = _ringSelection.Contains(action);
             var accent = AcrylicBrushes.ParseColor(action.Accent, globalAccent);
             var button = CreateDesignerButton(action, radius, tintBrush, accent, globalAccent, selected);
             var dropOutline = new System.Windows.Shapes.Ellipse
@@ -1041,32 +1042,49 @@ public partial class SettingsWindow : Window
     {
         if (!RecentlyCompletedDrag() && sender is FrameworkElement { Tag: ActionItemViewModel action })
         {
-            if (ReferenceEquals(_selectedAction, action))
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                ToggleRingSelection(action);
+                e.Handled = true;
+                return;
+            }
+
+            if (_ringSelection.Count == 1 && _ringSelection.Contains(action))
             {
                 DeselectRingAction();
                 e.Handled = true;
                 return;
             }
 
-            if (action.Parent is null && action.Children.Count > 0)
-            {
-                _selectedAction = action;
-                _expandedGroup = action;
-                UpdateRingSelectionUi();
-                RenderRingDesigner();
-            }
-            else
-            {
-                SelectRingAction(action);
-            }
+            SelectRingAction(action);
         }
         e.Handled = true;
     }
 
     private void SelectRingAction(ActionItemViewModel action)
     {
+        _ringSelection.Clear();
+        _ringSelection.Add(action);
         _selectedAction = action;
         _expandedGroup = action.Children.Count > 0 ? action : action.Parent;
+        UpdateRingSelectionUi();
+        RenderRingDesigner();
+    }
+
+    private void ToggleRingSelection(ActionItemViewModel action)
+    {
+        if (!_ringSelection.Add(action)) _ringSelection.Remove(action);
+
+        if (_ringSelection.Count == 1)
+        {
+            _selectedAction = _ringSelection.First();
+            _expandedGroup = _selectedAction.Children.Count > 0 ? _selectedAction : _selectedAction.Parent;
+        }
+        else
+        {
+            _selectedAction = null;
+            _expandedGroup = null;
+        }
         UpdateRingSelectionUi();
         RenderRingDesigner();
     }
@@ -1074,16 +1092,22 @@ public partial class SettingsWindow : Window
     private void UpdateRingSelectionUi()
     {
         if (SelectedRingCommands is null) return;
-        var selected = _selectedAction is not null;
+        var count = _ringSelection.Count;
+        var selected = count > 0;
+        var multiple = count > 1;
         SelectedRingCommands.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        NewRingActionButton.Visibility = multiple ? Visibility.Collapsed : Visibility.Visible;
+        RingEditCommandButton.Visibility = count == 1 ? Visibility.Visible : Visibility.Collapsed;
         RingDetailsEditor.DataContext = _selectedAction;
-        RingDetailsEditor.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
-        RingEditEmptyMessage.Visibility = selected ? Visibility.Collapsed : Visibility.Visible;
+        RingDetailsEditor.Visibility = count == 1 ? Visibility.Visible : Visibility.Collapsed;
+        RingEditEmptyMessage.Text = multiple ? "Select one to edit." : "Select a ring action to edit it.";
+        RingEditEmptyMessage.Visibility = count == 1 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void DeselectRingAction()
     {
         _selectedAction = null;
+        _ringSelection.Clear();
         _expandedGroup = null;
         UpdateRingSelectionUi();
         RenderRingDesigner();
@@ -1120,15 +1144,50 @@ public partial class SettingsWindow : Window
 
     private void NewRingAction_Click(object sender, RoutedEventArgs e)
     {
-        var added = NewAction(null);
-        Actions.Add(added);
+        var anchor = _ringSelection.Count == 1 ? _ringSelection.First() : null;
+        var parent = anchor?.Parent;
+        var added = NewAction(parent);
+        if (anchor is null)
+        {
+            Actions.Add(added);
+        }
+        else
+        {
+            var list = parent?.Children ?? Actions;
+            var index = list.IndexOf(anchor);
+            list.Insert(index < 0 ? list.Count : index + 1, added);
+        }
         SelectRingAction(added);
         ShowRingEditTab();
     }
 
     private void RingEditCommand_Click(object sender, RoutedEventArgs e) => ShowRingEditTab();
 
-    private void RingRemoveCommand_Click(object sender, RoutedEventArgs e) => DeleteAction_Click(sender, e);
+    private void RingRemoveCommand_Click(object sender, RoutedEventArgs e) => RemoveRingSelection();
+
+    private void RemoveRingSelection()
+    {
+        if (_ringSelection.Count == 0) return;
+        _restoringActions = true;
+        try
+        {
+            foreach (var action in _ringSelection.ToArray())
+            {
+                if (action.Parent is null) Actions.Remove(action);
+                else action.Parent.Children.Remove(action);
+            }
+        }
+        finally
+        {
+            _restoringActions = false;
+        }
+        _ringSelection.Clear();
+        _selectedAction = null;
+        _expandedGroup = null;
+        UpdateRingSelectionUi();
+        RenderRingDesigner();
+        UpdateUndoRingChanges();
+    }
 
     private void DeselectRingAction_Click(object sender, RoutedEventArgs e) => DeselectRingAction();
 
@@ -1617,10 +1676,10 @@ public partial class SettingsWindow : Window
             return;
         }
         if (RecentlyCompletedDrag() || sender is not FrameworkElement { DataContext: ActionPreset preset }) return;
-        if (_replaceSelectedFromPicker && _selectedAction is not null)
+        if (_ringSelection.Count == 1)
         {
             _replaceSelectedFromPicker = false;
-            ReplaceAction(_selectedAction, preset.Action);
+            ReplaceAction(_ringSelection.First(), preset.Action);
             return;
         }
         var parent = _expandedGroup;
@@ -1707,6 +1766,8 @@ public partial class SettingsWindow : Window
     private void ActionsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         _selectedAction = e.NewValue as ActionItemViewModel;
+        _ringSelection.Clear();
+        if (_selectedAction is not null) _ringSelection.Add(_selectedAction);
         UpdateRingSelectionUi();
         ActionEditor.DataContext = _selectedAction;
         ActionEditor.Visibility = _selectedAction is null ? Visibility.Collapsed : Visibility.Visible;
@@ -1832,6 +1893,8 @@ public partial class SettingsWindow : Window
     private void Edit(ActionItemViewModel item)
     {
         _selectedAction = item;
+        _ringSelection.Clear();
+        _ringSelection.Add(item);
         ActionEditor.DataContext = item;
         ActionEditor.Visibility = Visibility.Visible;
         EmptyActionMessage.Visibility = Visibility.Collapsed;
@@ -1870,6 +1933,7 @@ public partial class SettingsWindow : Window
         if (_selectedAction.Parent is null) Actions.Remove(_selectedAction);
         else _selectedAction.Parent.Children.Remove(_selectedAction);
         _selectedAction = null;
+        _ringSelection.Clear();
         _expandedGroup = null;
         ActionEditor.Visibility = Visibility.Collapsed;
         EmptyActionMessage.Visibility = Visibility.Visible;
