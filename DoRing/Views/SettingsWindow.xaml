@@ -353,7 +353,7 @@
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Centre size" Style="{StaticResource SettingName}" /><Button x:Name="ResetHubRadius" Tag="HubRadius" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Radius of the close button." Style="{StaticResource Caption}" /></StackPanel>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Close button size" Style="{StaticResource SettingName}" /><Button x:Name="ResetHubRadius" Tag="HubRadius" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Radius of the close button." Style="{StaticResource Caption}" /></StackPanel>
                                 <TextBox x:Name="HubRadiusBox" Grid.Column="1" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
@@ -361,8 +361,8 @@
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Tint colour" Style="{StaticResource SettingName}" /><Button x:Name="ResetTint" Tag="Tint" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Hex colour for the acrylic ring surface." Style="{StaticResource Caption}" /></StackPanel>
-                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose tint colour" Click="TintColor_Click">
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Tint color" Style="{StaticResource SettingName}" /><Button x:Name="ResetTint" Tag="Tint" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Hex color for the acrylic ring surface." Style="{StaticResource Caption}" /></StackPanel>
+                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose tint color" Click="TintColor_Click">
                                     <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#55FFFFFF" BorderThickness="1" Background="{Binding Text, ElementName=TintBox}" />
                                 </Button>
                                 <TextBox x:Name="TintBox" Grid.Column="2" VerticalAlignment="Center" />
@@ -371,8 +371,8 @@
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Accent colour" Style="{StaticResource SettingName}" /><Button x:Name="ResetAccent" Tag="Accent" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Default highlight colour used by ring actions." Style="{StaticResource Caption}" /></StackPanel>
-                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose accent colour" Click="AccentColor_Click">
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Accent color" Style="{StaticResource SettingName}" /><Button x:Name="ResetAccent" Tag="Accent" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Default highlight color used by ring actions." Style="{StaticResource Caption}" /></StackPanel>
+                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose accent color" Click="AccentColor_Click">
                                     <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#55FFFFFF" BorderThickness="1" Background="{Binding Text, ElementName=AccentBox}" />
                                 </Button>
                                 <TextBox x:Name="AccentBox" Grid.Column="2" VerticalAlignment="Center" />
@@ -404,6 +404,14 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <CheckBox x:Name="FadeOthersOnGroupOpenCheck" Style="{StaticResource ToggleSwitch}">
                                     <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Fade other actions with a group open" Style="{StaticResource SettingName}" /><Button x:Name="ResetFadeOthersOnGroupOpen" Tag="FadeOthersOnGroupOpen" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Show other actions at 80% opacity while a group is open." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="SettingsOnCloseRightClickCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Open app settings by right click to the close button" Style="{StaticResource SettingName}" /><Button x:Name="ResetSettingsOnCloseRightClick" Tag="SettingsOnCloseRightClick" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Right-click the centre close button to open this window." Style="{StaticResource Caption}" /></StackPanel>
                                 </CheckBox>
                             </Grid>
                         </Border>
@@ -591,7 +599,7 @@
                                         <TextBlock Text="Custom accent" FontWeight="SemiBold" />
                                         <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0"
                                                  VerticalContentAlignment="Center" />
-                                        <TextBlock Text="Optional hex colour. Leave blank to use the global accent." Style="{StaticResource Caption}" />
+                                        <TextBlock Text="Optional hex color. Leave blank to use the global accent." Style="{StaticResource Caption}" />
 
                                         <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}"
                                                 BorderThickness="1" CornerRadius="7" Padding="14" Margin="0,20,0,0">
@@ -980,7 +988,7 @@
                 <Border Width="292" Padding="16" Margin="0,5,0,0" Background="#F52B282D"
                         BorderBrush="#35FFFFFF" BorderThickness="1" CornerRadius="9">
                     <StackPanel>
-                        <TextBlock Text="Choose colour" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <TextBlock Text="Choose color" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" />
                         <Grid x:Name="ColorField" Width="258" Height="150" Cursor="Cross"
                               MouseLeftButtonDown="ColorField_MouseInput" MouseMove="ColorField_MouseInput">
                             <Rectangle x:Name="ColorFieldHue" Fill="#FF0000" />

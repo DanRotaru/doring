@@ -158,6 +158,12 @@ public sealed class RingConfig
     /// </summary>
     public bool FadeOthersOnGroupOpen { get; set; } = true;
 
+    /// <summary>
+    /// Right-clicking the centre close button opens the settings window. Off,
+    /// a right click anywhere just dismisses the ring.
+    /// </summary>
+    public bool SettingsOnCloseRightClick { get; set; } = true;
+
     /// <summary>Base tint of the acrylic surface.</summary>
     public string Tint { get; set; } = "#26262E";
 

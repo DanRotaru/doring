@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -468,6 +468,7 @@ public partial class SettingsWindow : Window
         TintOpacitySlider.Value = config.TintOpacity;
         ShowLabelsCheck.IsChecked = config.ShowLabels;
         FadeOthersOnGroupOpenCheck.IsChecked = config.FadeOthersOnGroupOpen;
+        SettingsOnCloseRightClickCheck.IsChecked = config.SettingsOnCloseRightClick;
         HardwareAccelerationCheck.IsChecked = config.HardwareAcceleration;
     }
 
@@ -478,7 +479,8 @@ public partial class SettingsWindow : Window
             box.TextChanged += (_, _) => UpdateResetButtons();
 
         foreach (var check in new[] { HoldToActivateCheck, FollowCursorCheck,
-                     ShowLabelsCheck, FadeOthersOnGroupOpenCheck, HardwareAccelerationCheck })
+                     ShowLabelsCheck, FadeOthersOnGroupOpenCheck, SettingsOnCloseRightClickCheck,
+                     HardwareAccelerationCheck })
         {
             check.Checked += (_, _) => UpdateResetButtons();
             check.Unchecked += (_, _) => UpdateResetButtons();
@@ -501,6 +503,7 @@ public partial class SettingsWindow : Window
         ResetTintOpacity.Visibility = Changed(TintOpacitySlider.Value, _defaults.TintOpacity);
         ResetShowLabels.Visibility = Changed(ShowLabelsCheck.IsChecked == true, _defaults.ShowLabels);
         ResetFadeOthersOnGroupOpen.Visibility = Changed(FadeOthersOnGroupOpenCheck.IsChecked == true, _defaults.FadeOthersOnGroupOpen);
+        ResetSettingsOnCloseRightClick.Visibility = Changed(SettingsOnCloseRightClickCheck.IsChecked == true, _defaults.SettingsOnCloseRightClick);
         ResetHardwareAcceleration.Visibility = Changed(HardwareAccelerationCheck.IsChecked == true, _defaults.HardwareAcceleration);
     }
 
@@ -539,6 +542,7 @@ public partial class SettingsWindow : Window
             case "TintOpacity": TintOpacitySlider.Value = _defaults.TintOpacity; break;
             case "ShowLabels": ShowLabelsCheck.IsChecked = _defaults.ShowLabels; break;
             case "FadeOthersOnGroupOpen": FadeOthersOnGroupOpenCheck.IsChecked = _defaults.FadeOthersOnGroupOpen; break;
+            case "SettingsOnCloseRightClick": SettingsOnCloseRightClickCheck.IsChecked = _defaults.SettingsOnCloseRightClick; break;
             case "HardwareAcceleration": HardwareAccelerationCheck.IsChecked = _defaults.HardwareAcceleration; break;
         }
         e.Handled = true;
@@ -777,7 +781,7 @@ public partial class SettingsWindow : Window
             Preset("Task Manager", "", ActionKind.Launch, "taskmgr.exe"),
             Preset("Task View", "", ActionKind.Keys, "Win+Tab"),
             Preset("Windows Run", "", ActionKind.Keys, "Win+R"),
-            Preset("Control Panel", "", ActionKind.Launch, "control.exe"),
+            Preset("Control Panel", "\uE90F", ActionKind.Launch, "control.exe"),
         ], "Open apps, files, folders, web pages, and Windows tools."),
         new("WINDOWS",
         [
@@ -829,7 +833,7 @@ public partial class SettingsWindow : Window
         new("CLIPBOARD",
         [
             Preset("Copy", "", ActionKind.Clipboard, "copy"), Preset("Paste", "", ActionKind.Clipboard, "paste"),
-            Preset("Cut", "", ActionKind.Clipboard, "cut"), Preset("Clear Clipboard", "", ActionKind.Clipboard, "clear"),
+            Preset("Cut", "\uE8C6", ActionKind.Clipboard, "cut"), Preset("Clear Clipboard", "", ActionKind.Clipboard, "clear"),
             Preset("Url encode clipboard", "\uE71B", ActionKind.Clipboard, "url-encode"),
             Preset("Url decode clipboard", "\uE71B", ActionKind.Clipboard, "url-decode"),
             Preset("HTML encode clipboard", "\uE943", ActionKind.Clipboard, "html-encode"),
@@ -837,7 +841,7 @@ public partial class SettingsWindow : Window
             Preset("Uppercase clipboard", "\uE8D2", ActionKind.Clipboard, "upper"),
             Preset("Lowercase clipboard", "\uE8D2", ActionKind.Clipboard, "lower"),
             Preset("Trim clipboard", "\uE78A", ActionKind.Clipboard, "trim"),
-            Preset("Clipboard history", "", ActionKind.Keys, "Win+V"),
+            Preset("Clipboard history", "\uF0E3", ActionKind.Keys, "Win+V"),
         ], "Copy, paste, transform, and manage clipboard content."),
     ];
 
@@ -2168,9 +2172,9 @@ public partial class SettingsWindow : Window
         if (!TryInt(HoldThresholdBox, 50, 2000, "Hold threshold", out var threshold, out error) ||
             !TryDouble(ButtonRadiusBox, 12, 80, "Action size", out var buttonRadius, out error) ||
             !TryDouble(OrbitRadiusBox, 30, 300, "Ring radius", out var orbitRadius, out error) ||
-            !TryDouble(HubRadiusBox, 8, 60, "Centre size", out var hubRadius, out error)) return false;
-        if (!IsColour(TintBox.Text)) { error = "Tint colour must be a hex colour such as #26262E."; return false; }
-        if (!IsColour(AccentBox.Text)) { error = "Accent colour must be a hex colour such as #5C7CFA."; return false; }
+            !TryDouble(HubRadiusBox, 8, 60, "Close button size", out var hubRadius, out error)) return false;
+        if (!IsColor(TintBox.Text)) { error = "Tint color must be a hex color such as #26262E."; return false; }
+        if (!IsColor(AccentBox.Text)) { error = "Accent color must be a hex color such as #5C7CFA."; return false; }
         if (Actions.Count == 0) { error = "Add at least one action to the ring."; return false; }
         if (Presets.Any(preset => string.IsNullOrWhiteSpace(preset.Name)))
         { error = "Every preset needs a name."; return false; }
@@ -2180,7 +2184,7 @@ public partial class SettingsWindow : Window
         foreach (var action in Flatten(Actions))
         {
             if (string.IsNullOrWhiteSpace(action.Label)) { error = "Every action needs a name."; return false; }
-            if (!string.IsNullOrWhiteSpace(action.Accent) && !IsColour(action.Accent)) { error = $"The accent for '{action.DisplayLabel}' is not a valid hex colour."; return false; }
+            if (!string.IsNullOrWhiteSpace(action.Accent) && !IsColor(action.Accent)) { error = $"The accent for '{action.DisplayLabel}' is not a valid hex color."; return false; }
             if (action.IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(action.IconPath) &&
                 (action.Kind != ActionKind.Launch || string.IsNullOrWhiteSpace(action.Target))) { error = $"'{action.DisplayLabel}' needs an app icon path."; return false; }
             if (action.Kind != ActionKind.Group && string.IsNullOrWhiteSpace(action.Target)) { error = $"'{action.DisplayLabel}' needs a target."; return false; }
@@ -2207,6 +2211,7 @@ public partial class SettingsWindow : Window
             HoldThresholdMs = threshold, ButtonRadius = buttonRadius, OrbitRadius = orbitRadius,
             HubRadius = hubRadius, ShowLabels = ShowLabelsCheck.IsChecked == true,
             FadeOthersOnGroupOpen = FadeOthersOnGroupOpenCheck.IsChecked == true,
+            SettingsOnCloseRightClick = SettingsOnCloseRightClickCheck.IsChecked == true,
             Tint = TintBox.Text.Trim(), TintOpacity = TintOpacitySlider.Value,
             Accent = AccentBox.Text.Trim(), FollowCursor = FollowCursorCheck.IsChecked == true,
             HardwareAcceleration = HardwareAccelerationCheck.IsChecked == true,
@@ -2245,7 +2250,7 @@ public partial class SettingsWindow : Window
         return false;
     }
 
-    private static bool IsColour(string text)
+    private static bool IsColor(string text)
     {
         try { return ColorConverter.ConvertFromString(text.Trim()) is Color; }
         catch { return false; }

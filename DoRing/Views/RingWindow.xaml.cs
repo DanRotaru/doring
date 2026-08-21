@@ -1068,7 +1068,7 @@ public partial class RingWindow : Window
 
     private void OnMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var openSettings = _hovered == HubIndex;
+        var openSettings = _hovered == HubIndex && _config.SettingsOnCloseRightClick;
         Hide();
 
         if (openSettings)

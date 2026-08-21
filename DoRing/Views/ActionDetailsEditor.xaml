@@ -168,7 +168,7 @@
 
             <TextBlock Text="Custom accent" FontWeight="SemiBold" />
             <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0" />
-            <TextBlock Text="Optional hex colour. Leave blank to use the global accent."
+            <TextBlock Text="Optional hex color. Leave blank to use the global accent."
                        Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,4,0,14" TextWrapping="Wrap" />
 
             <Border Background="#0DFFFFFF" BorderBrush="{StaticResource EditorStrokeBrush}"
