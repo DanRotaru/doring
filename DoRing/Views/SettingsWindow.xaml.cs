@@ -709,15 +709,6 @@ public partial class SettingsWindow : Window
         UpdatePresetsUi();
     }
 
-    private void UpdatePreset_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not RingPresetViewModel preset) return;
-        preset.ReplaceActions(SnapshotActions());
-        _activePresetId = preset.Id;
-        PresetStatusText.Text = $"Updated '{preset.Name}' from the current ring.";
-        UpdatePresetsUi();
-    }
-
     private void DeletePreset_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not RingPresetViewModel preset) return;
@@ -754,11 +745,23 @@ public partial class SettingsWindow : Window
         UpdateUndoRingChanges();
     }
 
-    private void MarkRingAsCustom()
+    /// <summary>
+    /// Keeps the active preset in step with the ring being edited. The preset a
+    /// user has switched to *is* the ring, so every edit belongs to it - there is
+    /// no separate "update from current ring" step, and no detaching to a custom
+    /// ring behind their back. Writing to settings.json still waits for Save.
+    /// </summary>
+    private void SyncActivePreset()
     {
         if (_applyingPreset || _restoringActions || _activePresetId is null) return;
-        _activePresetId = null;
-        UpdatePresetsUi();
+        var preset = Presets.FirstOrDefault(item => item.Id == _activePresetId);
+        if (preset is null)
+        {
+            _activePresetId = null;
+            UpdatePresetsUi();
+            return;
+        }
+        preset.ReplaceActions(SnapshotActions());
     }
 
     private static IReadOnlyList<ActionPresetCategory> CreateActionCategories() =>
@@ -860,7 +863,7 @@ public partial class SettingsWindow : Window
             foreach (ActionItemViewModel action in e.NewItems) WatchAction(action);
         if (!_restoringActions)
         {
-            MarkRingAsCustom();
+            SyncActivePreset();
             RenderRingDesigner();
             UpdateUndoRingChanges();
         }
@@ -888,7 +891,7 @@ public partial class SettingsWindow : Window
             foreach (ActionItemViewModel action in e.NewItems) WatchAction(action);
         if (!_restoringActions)
         {
-            MarkRingAsCustom();
+            SyncActivePreset();
             RenderRingDesigner();
             UpdateUndoRingChanges();
         }
@@ -896,7 +899,7 @@ public partial class SettingsWindow : Window
 
     private void RingAction_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        MarkRingAsCustom();
+        SyncActivePreset();
         RenderRingDesigner();
         UpdateUndoRingChanges();
     }
@@ -939,6 +942,7 @@ public partial class SettingsWindow : Window
         _ringSelection.Clear();
         _expandedGroup = null;
         _activePresetId = _initialActivePresetId;
+        SyncActivePreset();
         UpdateRingSelectionUi();
         UpdatePresetsUi();
         ActionEditor.Visibility = Visibility.Collapsed;
@@ -1367,7 +1371,7 @@ public partial class SettingsWindow : Window
         {
             _restoringActions = false;
         }
-        MarkRingAsCustom();
+        SyncActivePreset();
         _ringSelection.Clear();
         _selectedAction = null;
         _expandedGroup = null;
@@ -1910,7 +1914,7 @@ public partial class SettingsWindow : Window
             {
                 _restoringActions = false;
             }
-            MarkRingAsCustom();
+            SyncActivePreset();
             UpdateUndoRingChanges();
             SelectRingAction(source);
             return;
