@@ -1,8 +1,12 @@
+using System.IO;
+using IOPath = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using ActionRing.Interop;
 using ActionRing.Models;
@@ -19,7 +23,7 @@ public partial class RingWindow : Window
         public required double Radius { get; init; }
         public required FrameworkElement Host { get; init; }
         public required Ellipse Highlight { get; init; }
-        public required TextBlock Glyph { get; init; }
+        public required FrameworkElement Icon { get; init; }
         public required ScaleTransform Scale { get; init; }
     }
 
@@ -74,6 +78,7 @@ public partial class RingWindow : Window
     private static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(110);
 
     private RingConfig _config;
+    private readonly Action _showSettings;
     private readonly List<RingButton> _buttons = new();
     private readonly Dictionary<int, SubGroup> _groups = new();
 
@@ -104,9 +109,10 @@ public partial class RingWindow : Window
     private FrameworkElement _pill = null!;
     private TextBlock _pillText = null!;
 
-    public RingWindow(RingConfig config)
+    public RingWindow(RingConfig config, Action showSettings)
     {
         _config = config;
+        _showSettings = showSettings;
         InitializeComponent();
 
         Root.RenderTransformOrigin = new Point(0.5, 0.5);
@@ -116,7 +122,7 @@ public partial class RingWindow : Window
         Deactivated += (_, _) => Hide();
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
-        MouseRightButtonUp += (_, _) => Hide();
+        MouseRightButtonUp += OnMouseRightButtonUp;
         KeyDown += OnKeyDown;
 
         // Rendering the ring dirties a few MB of pages that are dead the moment
@@ -329,16 +335,8 @@ public partial class RingWindow : Window
         var highlight = new Ellipse { Fill = new SolidColorBrush(segmentAccent), Opacity = 0 };
         host.Children.Add(highlight);
 
-        var glyph = new TextBlock
-        {
-            Text = action.Glyph,
-            FontFamily = (FontFamily)Resources["IconFont"],
-            FontSize = radius * 0.82,
-            Foreground = new SolidColorBrush(Color.FromArgb(0xDE, 0xFF, 0xFF, 0xFF)),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        host.Children.Add(glyph);
+        var icon = CreateIconVisual(action, radius);
+        host.Children.Add(icon);
 
         // A dot on the shoulder marks "this one has more inside".
         if (action.IsGroup) host.Children.Add(CreateGroupBadge(radius, segmentAccent));
@@ -353,9 +351,72 @@ public partial class RingWindow : Window
             Radius = radius,
             Host = host,
             Highlight = highlight,
-            Glyph = glyph,
+            Icon = icon,
             Scale = scale,
         };
+    }
+
+    private FrameworkElement CreateIconVisual(RingAction action, double radius)
+    {
+        if (action.IconKind == ActionIconKind.AppIcon && TryLoadIcon(action.IconPath, radius, out var source))
+        {
+            return new Image
+            {
+                Source = source,
+                Width = radius * 1.05,
+                Height = radius * 1.05,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
+        return new TextBlock
+        {
+            Text = action.Glyph,
+            FontFamily = (FontFamily)Resources["IconFont"],
+            FontSize = radius * 0.82,
+            Foreground = new SolidColorBrush(Color.FromArgb(0xDE, 0xFF, 0xFF, 0xFF)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+    }
+
+    internal static bool TryLoadIcon(string rawPath, double radius, out ImageSource? source)
+    {
+        source = null;
+        if (string.IsNullOrWhiteSpace(rawPath)) return false;
+        try
+        {
+            var path = Environment.ExpandEnvironmentVariables(rawPath.Trim());
+            if (!IOPath.IsPathRooted(path)) path = IOPath.Combine(AppContext.BaseDirectory, path);
+            if (!File.Exists(path)) return false;
+
+            if (string.Equals(IOPath.GetExtension(path), ".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                using var icon = System.Drawing.Icon.ExtractAssociatedIcon(path);
+                if (icon is null) return false;
+                var bitmap = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, Int32Rect.Empty,
+                    BitmapSizeOptions.FromWidthAndHeight((int)Math.Ceiling(radius * 1.2), (int)Math.Ceiling(radius * 1.2)));
+                bitmap.Freeze();
+                source = bitmap;
+                return true;
+            }
+
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            image.DecodePixelWidth = (int)Math.Ceiling(radius * 2);
+            image.EndInit();
+            image.Freeze();
+            source = image;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static UIElement CreateGroupBadge(double radius, Color accent)
@@ -956,7 +1017,7 @@ public partial class RingWindow : Window
         button.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
         button.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
 
-        button.Glyph.Opacity = on ? 1.0 : 0.88;
+        button.Icon.Opacity = on ? 1.0 : 0.88;
     }
 
     private void UpdatePill()
@@ -998,6 +1059,17 @@ public partial class RingWindow : Window
 
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
         InvokeHovered(closeOnMiss: false);
+
+    private void OnMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        var openSettings = _hovered == HubIndex;
+        Hide();
+
+        if (openSettings)
+            _showSettings();
+
+        e.Handled = true;
+    }
 
     /// <summary>
     /// Runs whatever is currently under the pointer.

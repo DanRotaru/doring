@@ -28,7 +28,8 @@ picks the item at the top — there is no small circle to hit. Only the centre k
 circular target, since it means cancel.
 
 - Hover a button — it pops, tints with its accent, and names itself on a pill beside it
-- The red centre button, `Esc`, right-click, or clicking away all dismiss it
+- The red centre button, `Esc`, or clicking away dismisses it; right-clicking the
+  centre button opens Settings, while right-clicking elsewhere dismisses the ring
 - Releasing the hotkey over the centre, or over nothing, dismisses it too
 
 ## Building the portable exe
@@ -101,6 +102,10 @@ binary so the whole thing stays portable).
 
 `Glyph` is a single character — a [Segoe Fluent Icons](https://learn.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font)
 codepoint or an emoji. `Accent` on an individual action overrides the global one.
+
+An action can display a file or application icon instead. Set `IconKind` to
+`AppIcon` and `IconPath` to an `.ico`, `.png`, other image, or `.exe` path. Relative
+paths are resolved beside `ActionRing.exe`; environment variables are expanded.
 
 Button count is however long the array is. Add a tenth action and `OrbitRadius`
 widens on its own rather than the buttons shrinking to fit.

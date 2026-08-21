@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\ring.ico" />
+    <EmbeddedResource Include="Resources\segoe-fluent-icons-font.md" />
   </ItemGroup>
 
   <ItemGroup>

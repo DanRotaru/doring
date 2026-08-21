@@ -19,6 +19,12 @@ public enum ActionKind
     Group,
 }
 
+public enum ActionIconKind
+{
+    Glyph,
+    AppIcon,
+}
+
 public sealed class RingAction
 {
     /// <summary>Short label drawn inside the segment.</summary>
@@ -26,6 +32,12 @@ public sealed class RingAction
 
     /// <summary>A single glyph (emoji or Segoe Fluent Icons codepoint) drawn above the label.</summary>
     public string Glyph { get; set; } = "";
+
+    /// <summary>Whether the ring draws <see cref="Glyph"/> or an icon loaded from a file.</summary>
+    public ActionIconKind IconKind { get; set; } = ActionIconKind.Glyph;
+
+    /// <summary>Path to an .ico/.png/image or executable when <see cref="IconKind"/> is AppIcon.</summary>
+    public string IconPath { get; set; } = "";
 
     public ActionKind Kind { get; set; } = ActionKind.Launch;
 

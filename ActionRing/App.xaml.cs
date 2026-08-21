@@ -71,7 +71,7 @@ public partial class App : System.Windows.Application
     {
         if (_ring is not null) return _ring;
 
-        _ring = new RingWindow(_config);
+        _ring = new RingWindow(_config, ShowSettings);
         _ring.Apply(_config);
         return _ring;
     }

@@ -12,12 +12,13 @@
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <SolidColorBrush x:Key="PanelBrush" Color="#00292929" />
-        <SolidColorBrush x:Key="CardBrush" Color="#D13B363C" />
-        <SolidColorBrush x:Key="NavSelectedBrush" Color="#66483F4B" />
-        <SolidColorBrush x:Key="ContentSurfaceBrush" Color="#C92B242D" />
-        <SolidColorBrush x:Key="StrokeBrush" Color="#28FFFFFF" />
+        <SolidColorBrush x:Key="CardBrush" Color="#10FFFFFF" />
+        <SolidColorBrush x:Key="NavSelectedBrush" Color="#14FFFFFF" />
+        <SolidColorBrush x:Key="ContentSurfaceBrush" Color="#0DFFFFFF" />
+        <SolidColorBrush x:Key="StrokeBrush" Color="#1AFFFFFF" />
         <SolidColorBrush x:Key="MutedBrush" Color="#A9A9A9" />
         <SolidColorBrush x:Key="AccentBrush" Color="#60CDFF" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
         <Style x:Key="PageTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="28" />
@@ -34,8 +35,8 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
-        <!-- Do not declare implicit styles for framework controls here. Doing so
-             masks the .NET Fluent theme and brings the old light templates back. -->
+        <!-- Keep framework controls on the native .NET Fluent theme. Local
+             presentation adjustments are applied directly to each control. -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="{StaticResource AccentBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
@@ -43,12 +44,26 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="16,7" />
             <Setter Property="Height" Value="36" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#8BDDFF" />
-                    <Setter Property="BorderBrush" Value="#8BDDFF" />
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PrimarySurface" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="5">
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PrimarySurface" Property="Background" Value="#8BDDFF" />
+                                <Setter TargetName="PrimarySurface" Property="BorderBrush" Value="#8BDDFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PrimarySurface" Property="Background" Value="#4FC3F7" />
+                                <Setter TargetName="PrimarySurface" Property="BorderBrush" Value="#4FC3F7" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -61,12 +76,44 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="NavSurface" Background="{TemplateBinding Background}"
+                                CornerRadius="5" SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="NavSurface" Property="Background" Value="#1CFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="NavSurface" Property="Background" Value="#22FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="9,5" />
             <Setter Property="MinWidth" Value="36" />
             <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
             <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="ResetButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Content" Value="&#xE777;" />
+            <Setter Property="ToolTip" Value="Restore default" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="24" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="7,-2,0,-2" />
+            <Setter Property="Visibility" Value="Hidden" />
         </Style>
         <Style x:Key="ActionTreeItemStyle" TargetType="TreeViewItem"
                BasedOn="{StaticResource {x:Type TreeViewItem}}">
@@ -124,8 +171,15 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border Width="28" Height="28" CornerRadius="6" Background="#3D3D3D">
-                    <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15" />
+                    <Grid>
+                        <Image Source="{Binding DisplayIcon}" Width="20" Height="20" Stretch="Uniform"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Visibility="{Binding UseAppImage, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{Binding DisplayGlyph}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15"
+                                   Visibility="{Binding UseDisplayGlyph, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
                 </Border>
                 <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
@@ -168,20 +222,25 @@
                             <TextBlock Text="SETTINGS" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="14,0,0,8" />
                             <Button x:Name="GeneralNav" Style="{StaticResource NavButton}" Click="GeneralNav_Click">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="4"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Border x:Name="GeneralIndicator" Width="3" Height="18" CornerRadius="2"
-                                            Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" />
-                                    <TextBlock Grid.Column="1" Text="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="General" Margin="8,0,0,0" />
+                                            Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" Margin="-4,0,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                        <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="16" Width="26" TextAlignment="Center" />
+                                        <TextBlock Text="General" Margin="8,0,0,0" />
+                                    </StackPanel>
                                 </Grid>
                             </Button>
                             <Button x:Name="ActionsNav" Style="{StaticResource NavButton}" Click="ActionsNav_Click">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="4"/><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Border x:Name="ActionsIndicator" Width="3" Height="18" CornerRadius="2"
-                                            Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" Visibility="Collapsed" />
-                                    <TextBlock Grid.Column="1" Text="&#xE8FD;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="Actions" Margin="8,0,0,0" />
+                                            Background="{StaticResource AccentBrush}" HorizontalAlignment="Left"
+                                            Margin="-4,0,0,0" Visibility="Collapsed" />
+                                    <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                                        <TextBlock Text="&#xE8FD;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="16" Width="26" TextAlignment="Center" />
+                                        <TextBlock Text="Actions" Margin="8,0,0,0" />
+                                    </StackPanel>
                                 </Grid>
                             </Button>
                         </StackPanel>
@@ -193,7 +252,8 @@
 
                 <!-- GENERAL -->
                 <ScrollViewer x:Name="GeneralPage" Grid.Column="1" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+                              HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch"
+                              Focusable="False" FocusVisualStyle="{x:Null}" BorderThickness="0">
                     <StackPanel Margin="42,30,42,36">
                         <TextBlock Text="General" Style="{StaticResource PageTitle}" />
                         <TextBlock Text="Choose how the ring opens, behaves, and looks."
@@ -203,9 +263,9 @@
 
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Keyboard shortcut" Style="{StaticResource SettingName}" />
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Keyboard shortcut" Style="{StaticResource SettingName}" /><Button x:Name="ResetHotKey" Tag="HotKey" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
                                     <TextBlock Text="The global shortcut that opens Action Ring." Style="{StaticResource Caption}" />
                                 </StackPanel>
                                 <TextBox x:Name="HotKeyBox" Grid.Column="1" VerticalAlignment="Center" />
@@ -213,19 +273,22 @@
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
-                            <CheckBox x:Name="HoldToActivateCheck" Style="{StaticResource ToggleSwitch}">
-                                <StackPanel>
-                                    <TextBlock Text="Hold and flick" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Hold the shortcut, point at an action, then release to run it." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                            </CheckBox>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="HoldToActivateCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="Hold and flick" Style="{StaticResource SettingName}" /><Button x:Name="ResetHoldToActivate" Tag="HoldToActivate" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
+                                        <TextBlock Text="Hold the shortcut, point at an action, then release to run it." Style="{StaticResource Caption}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </Grid>
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Hold threshold" Style="{StaticResource SettingName}" />
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Hold threshold" Style="{StaticResource SettingName}" /><Button x:Name="ResetHoldThreshold" Tag="HoldThresholdMs" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
                                     <TextBlock Text="Delay before a press becomes a hold gesture, in milliseconds." Style="{StaticResource Caption}" />
                                 </StackPanel>
                                 <TextBox x:Name="HoldThresholdBox" Grid.Column="1" VerticalAlignment="Center" />
@@ -233,109 +296,94 @@
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
-                            <CheckBox x:Name="FollowCursorCheck" Style="{StaticResource ToggleSwitch}">
-                                <StackPanel>
-                                    <TextBlock Text="Follow the pointer" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Open the ring at the mouse pointer instead of the screen centre." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                            </CheckBox>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="FollowCursorCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal"><TextBlock Text="Follow the pointer" Style="{StaticResource SettingName}" /><Button x:Name="ResetFollowCursor" Tag="FollowCursor" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
+                                        <TextBlock Text="Open the ring at the mouse pointer instead of the screen centre." Style="{StaticResource Caption}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </Grid>
                         </Border>
 
                         <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" Margin="0,26,0,10" />
 
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Action size" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Radius of each action button." Style="{StaticResource Caption}" />
-                                </StackPanel>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Action size" Style="{StaticResource SettingName}" /><Button x:Name="ResetButtonRadius" Tag="ButtonRadius" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Radius of each action button." Style="{StaticResource Caption}" /></StackPanel>
                                 <TextBox x:Name="ButtonRadiusBox" Grid.Column="1" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
-
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Ring radius" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Distance between the centre and actions." Style="{StaticResource Caption}" />
-                                </StackPanel>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Ring radius" Style="{StaticResource SettingName}" /><Button x:Name="ResetOrbitRadius" Tag="OrbitRadius" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Distance between the centre and actions." Style="{StaticResource Caption}" /></StackPanel>
                                 <TextBox x:Name="OrbitRadiusBox" Grid.Column="1" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
-
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Centre size" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Radius of the close button." Style="{StaticResource Caption}" />
-                                </StackPanel>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="96"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Centre size" Style="{StaticResource SettingName}" /><Button x:Name="ResetHubRadius" Tag="HubRadius" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Radius of the close button." Style="{StaticResource Caption}" /></StackPanel>
                                 <TextBox x:Name="HubRadiusBox" Grid.Column="1" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Tint colour" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Hex colour for the acrylic ring surface." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                                <TextBox x:Name="TintBox" Grid.Column="1" VerticalAlignment="Center" />
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Tint colour" Style="{StaticResource SettingName}" /><Button x:Name="ResetTint" Tag="Tint" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Hex colour for the acrylic ring surface." Style="{StaticResource Caption}" /></StackPanel>
+                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose tint colour" Click="TintColor_Click">
+                                    <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#55FFFFFF" BorderThickness="1" Background="{Binding Text, ElementName=TintBox}" />
+                                </Button>
+                                <TextBox x:Name="TintBox" Grid.Column="2" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Accent colour" Style="{StaticResource SettingName}" /><Button x:Name="ResetAccent" Tag="Accent" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Default highlight colour used by ring actions." Style="{StaticResource Caption}" /></StackPanel>
+                                <Button Grid.Column="1" Padding="4" Margin="0,0,6,0" ToolTip="Choose accent colour" Click="AccentColor_Click">
+                                    <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#55FFFFFF" BorderThickness="1" Background="{Binding Text, ElementName=AccentBox}" />
+                                </Button>
+                                <TextBox x:Name="AccentBox" Grid.Column="2" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Accent colour" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Default highlight colour used by ring actions." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                                <TextBox x:Name="AccentBox" Grid.Column="1" VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
-
-                        <Border Style="{StaticResource SettingCard}">
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Tint opacity" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Lower values make the ring more transparent." Style="{StaticResource Caption}" />
-                                </StackPanel>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Tint opacity" Style="{StaticResource SettingName}" /><Button x:Name="ResetTintOpacity" Tag="TintOpacity" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Lower values make the ring more transparent." Style="{StaticResource Caption}" /></StackPanel>
                                 <Grid Grid.Column="1" VerticalAlignment="Center">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
-                                    <Slider x:Name="TintOpacitySlider" Minimum="0.1" Maximum="1"
-                                            TickFrequency="0.05" IsSnapToTickEnabled="True" />
-                                    <TextBlock Grid.Column="1" Text="{Binding ElementName=TintOpacitySlider, Path=Value, StringFormat={}{0:P0}}"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <Slider x:Name="TintOpacitySlider" Minimum="0.1" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ElementName=TintOpacitySlider, Path=Value, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Grid>
                         </Border>
 
                         <Border Style="{StaticResource SettingCard}">
-                            <CheckBox x:Name="ShowLabelsCheck" Style="{StaticResource ToggleSwitch}">
-                                <StackPanel>
-                                    <TextBlock Text="Action labels" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Show an action's name when it is hovered." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                            </CheckBox>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ShowLabelsCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Action labels" Style="{StaticResource SettingName}" /><Button x:Name="ResetShowLabels" Tag="ShowLabels" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Show an action's name when it is hovered." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
                         </Border>
-
                         <Border Style="{StaticResource SettingCard}">
-                            <CheckBox x:Name="HardwareAccelerationCheck" Style="{StaticResource ToggleSwitch}">
-                                <StackPanel>
-                                    <TextBlock Text="Hardware acceleration" Style="{StaticResource SettingName}" />
-                                    <TextBlock Text="Use the GPU to render the ring. Takes effect after restarting Action Ring." Style="{StaticResource Caption}" />
-                                </StackPanel>
-                            </CheckBox>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="HardwareAccelerationCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Hardware acceleration" Style="{StaticResource SettingName}" /><Button x:Name="ResetHardwareAcceleration" Tag="HardwareAcceleration" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Use the GPU to render the ring. Takes effect after restarting Action Ring." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
                 <!-- ACTIONS -->
-                <Grid x:Name="ActionsPage" Grid.Column="1" Visibility="Collapsed" Margin="42,30,42,36">
+                <Grid x:Name="ActionsPage" Grid.Column="1" Visibility="Collapsed" Margin="42,30,42,0">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <StackPanel Margin="0,0,0,20">
                         <TextBlock Text="Actions" Style="{StaticResource PageTitle}" />
@@ -344,92 +392,186 @@
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
-                                CornerRadius="8" Padding="10,10,4,10">
+                                CornerRadius="8" Padding="10">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Button Content="+ Add" Click="AddAction_Click" HorizontalAlignment="Left" />
+                                    <Button Click="AddAction_Click" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Add" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                     <Button Grid.Column="1" Content="&#xE74A;" ToolTip="Move up" Style="{StaticResource IconButton}" Click="MoveUp_Click" Margin="4,0,0,0" />
                                     <Button Grid.Column="2" Content="&#xE74B;" ToolTip="Move down" Style="{StaticResource IconButton}" Click="MoveDown_Click" Margin="4,0,0,0" />
                                     <Button Grid.Column="3" Content="&#xE74D;" ToolTip="Delete" Style="{StaticResource IconButton}" Click="DeleteAction_Click" Margin="4,0,0,0" />
                                 </Grid>
                                 <TreeView x:Name="ActionsTree" ItemsSource="{Binding Actions}"
                                           Background="Transparent" BorderThickness="0"
+                                          Padding="0,0,14,0"
                                           ItemContainerStyle="{StaticResource ActionTreeItemStyle}"
                                           SelectedItemChanged="ActionsTree_SelectedItemChanged" />
                             </DockPanel>
                         </Border>
 
                         <Border Grid.Column="2" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}"
-                                BorderThickness="1" CornerRadius="8" Padding="22,22,6,22">
+                                BorderThickness="1" CornerRadius="8" Padding="22">
                             <Grid>
                                 <TextBlock x:Name="EmptyActionMessage" Text="Select an action to edit it." Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <ScrollViewer x:Name="ActionEditor" Visibility="Collapsed"
-                                              VerticalScrollBarVisibility="Auto">
+                                              VerticalScrollBarVisibility="Auto" Padding="0,0,18,0"
+                                              BorderThickness="0" FocusVisualStyle="{x:Null}">
                                     <StackPanel>
-                                        <TextBlock Text="Action details" Style="{StaticResource SectionTitle}" />
-                                        <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="160"/></Grid.ColumnDefinitions>
-                                            <StackPanel Margin="0,0,12,0">
-                                                <TextBlock Text="Name" FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="Glyph" FontWeight="SemiBold" />
-                                                <Grid Margin="0,7,0,14">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
-                                                    <TextBox Text="{Binding Glyph, UpdateSourceTrigger=PropertyChanged}"
-                                                             FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="17" />
-                                                    <ComboBox Grid.Column="1" Margin="5,0,0,0" ToolTip="Choose a Segoe Fluent icon"
-                                                              ItemsSource="{Binding AvailableGlyphs}"
-                                                              SelectedItem="{Binding Glyph, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              MaxDropDownHeight="320" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                              FontSize="17" HorizontalContentAlignment="Center">
-                                                        <ComboBox.ItemsPanel>
-                                                            <ItemsPanelTemplate>
-                                                                <WrapPanel IsItemsHost="True" Orientation="Horizontal" Width="220" />
-                                                            </ItemsPanelTemplate>
-                                                        </ComboBox.ItemsPanel>
-                                                        <ComboBox.ItemContainerStyle>
-                                                            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
-                                                                <Setter Property="Width" Value="44" />
-                                                                <Setter Property="Height" Value="40" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                            <TextBlock Text="Action details" FontSize="18" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                            <Button Style="{StaticResource ResetButton}" Margin="8,0,0,0"
+                                                    Visibility="{Binding IsModified, Converter={StaticResource BoolToVisibility}}"
+                                                    ToolTip="Restore this action" Click="RevertAction_Click" />
+                                        </StackPanel>
+                                        <TextBlock Text="Name" FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14"
+                                                 VerticalContentAlignment="Center" />
+
+                                        <TextBlock Text="Icon source" FontWeight="SemiBold" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,7,0,12">
+                                            <RadioButton Content="Glyph" GroupName="IconSource"
+                                                         IsChecked="{Binding UseGlyph, Mode=TwoWay}" Margin="0,0,20,0" />
+                                            <RadioButton Content="App icon" GroupName="IconSource"
+                                                         IsChecked="{Binding UseAppIcon, Mode=TwoWay}" />
+                                        </StackPanel>
+
+                                        <StackPanel Visibility="{Binding UseGlyph, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
+                                            <TextBlock Text="Glyph" FontWeight="SemiBold" />
+                                            <Border Margin="0,7,0,0" Padding="7" CornerRadius="7"
+                                                    Background="#08000000" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <Grid Margin="2,0,2,7">
+                                                        <TextBox x:Name="GlyphSearchBox" Height="34" Padding="34,5,10,5"
+                                                                 VerticalContentAlignment="Center"
+                                                                 TextChanged="GlyphSearch_TextChanged"
+                                                                 ToolTip="Search icons by name, keyword, or Unicode codepoint" />
+                                                        <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                   Foreground="{StaticResource MutedBrush}" Margin="11,0,0,0"
+                                                                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                   IsHitTestVisible="False" />
+                                                        <TextBlock x:Name="GlyphSearchPlaceholder" Text="Search glyphs"
+                                                                   Foreground="{StaticResource MutedBrush}" Margin="34,0,10,0"
+                                                                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                   IsHitTestVisible="False" />
+                                                    </Grid>
+                                                    <ListBox x:Name="GlyphList" Height="168" Background="Transparent" BorderThickness="0"
+                                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                             VirtualizingPanel.IsVirtualizing="True"
+                                                             VirtualizingPanel.VirtualizationMode="Recycling">
+                                                        <ListBox.ItemContainerStyle>
+                                                            <Style TargetType="ListBoxItem">
                                                                 <Setter Property="Padding" Value="0" />
-                                                                <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                                                <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                                <Setter Property="Margin" Value="0" />
+                                                                <Setter Property="Focusable" Value="False" />
+                                                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                                            <ContentPresenter HorizontalAlignment="Stretch" />
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
                                                             </Style>
-                                                        </ComboBox.ItemContainerStyle>
-                                                        <ComboBox.ItemTemplate>
+                                                        </ListBox.ItemContainerStyle>
+                                                        <ListBox.ItemTemplate>
                                                             <DataTemplate>
-                                                                <TextBlock Text="{Binding}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                                           FontSize="18" HorizontalAlignment="Center" />
+                                                                <ItemsControl ItemsSource="{Binding}" HorizontalAlignment="Stretch">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate><UniformGrid Columns="6" /></ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Button Height="38" Margin="2" Padding="0" ToolTip="{Binding Name}"
+                                                                                    HorizontalAlignment="Stretch" Click="GlyphChoice_Click">
+                                                                                <Button.Style>
+                                                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                                                        <Setter Property="Foreground" Value="#F5F5F5" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                                                                <Setter Property="BorderThickness" Value="2" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Button.Style>
+                                                                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" />
+                                                                            </Button>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
                                                             </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
-                                                </Grid>
-                                            </StackPanel>
-                                        </Grid>
+                                                        </ListBox.ItemTemplate>
+                                                    </ListBox>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Visibility="{Binding UseAppIcon, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="App icon path" FontWeight="SemiBold" />
+                                            <Grid Margin="0,7,0,4">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBox x:Name="IconPathBox" VerticalAlignment="Stretch"
+                                                         VerticalContentAlignment="Center"
+                                                         Text="{Binding IconPath, UpdateSourceTrigger=PropertyChanged}" />
+                                                <Button Grid.Column="1" MinWidth="96" Margin="8,0,0,0" Padding="12,0"
+                                                        VerticalAlignment="Stretch"
+                                                        ToolTip="Choose icon file" Click="BrowseIcon_Click">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="&#xE8E5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                   Margin="0,0,7,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Browse…" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </Grid>
+                                            <TextBlock Text="An .ico, .png, image, or executable path." Style="{StaticResource Caption}" Margin="0,0,0,14" />
+                                        </StackPanel>
                                         <TextBlock Text="Type" FontWeight="SemiBold" />
                                         <ComboBox x:Name="KindBox" ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14" SelectionChanged="KindBox_SelectionChanged" />
                                         <TextBlock x:Name="TargetLabel" Text="Target" FontWeight="SemiBold" />
-                                        <TextBox x:Name="TargetEditor" Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0" />
+                                        <Grid Margin="0,7,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBox x:Name="TargetEditor" Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}"
+                                                     VerticalAlignment="Stretch" VerticalContentAlignment="Center" />
+                                            <Button x:Name="TargetBrowseButton" Grid.Column="1" MinWidth="96" Margin="8,0,0,0" Padding="12,0"
+                                                    VerticalAlignment="Stretch" ToolTip="Choose a file or app" Click="BrowseTarget_Click">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="&#xE8E5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Browse…" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
                                         <TextBlock x:Name="TargetHint" Style="{StaticResource Caption}" Margin="0,4,0,14" />
                                         <StackPanel x:Name="ArgumentsPanel">
                                             <TextBlock Text="Arguments" FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14" />
+                                            <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14"
+                                                     VerticalContentAlignment="Center" />
                                         </StackPanel>
                                         <TextBlock Text="Custom accent" FontWeight="SemiBold" />
-                                        <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0" />
+                                        <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0"
+                                                 VerticalContentAlignment="Center" />
                                         <TextBlock Text="Optional hex colour. Leave blank to use the global accent." Style="{StaticResource Caption}" />
 
-                                        <Border Background="#25334B" BorderBrush="#38527A" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,20,0,0">
+                                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                                                BorderThickness="1" CornerRadius="7" Padding="14" Margin="0,20,0,0">
                                             <Grid>
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                                 <StackPanel>
                                                     <TextBlock Text="Sub-actions" FontWeight="SemiBold" />
                                                     <TextBlock Text="Add a child to make this action expand on hover." Style="{StaticResource Caption}" />
                                                 </StackPanel>
-                                                <Button Grid.Column="1" Content="+ Add child" Click="AddChild_Click" Margin="12,0,0,0" />
+                                                <Button Grid.Column="1" Click="AddChild_Click" Margin="12,0,0,0">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Add child" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
                                             </Grid>
                                         </Border>
                                     </StackPanel>
@@ -460,6 +602,45 @@
                     </Grid>
                 </Border>
             </Grid>
+
+            <Popup x:Name="FluentColorPopup" Placement="Bottom" StaysOpen="False"
+                   AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Width="292" Padding="16" Margin="0,5,0,0" Background="#F52B282D"
+                        BorderBrush="#35FFFFFF" BorderThickness="1" CornerRadius="9">
+                    <StackPanel>
+                        <TextBlock Text="Choose colour" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <Grid x:Name="ColorField" Width="258" Height="150" Cursor="Cross"
+                              MouseLeftButtonDown="ColorField_MouseInput" MouseMove="ColorField_MouseInput">
+                            <Rectangle x:Name="ColorFieldHue" Fill="#FF0000" />
+                            <Rectangle>
+                                <Rectangle.Fill><LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5"><GradientStop Color="White" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+                            </Rectangle>
+                            <Rectangle>
+                                <Rectangle.Fill><LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1"><GradientStop Color="#00000000" Offset="0"/><GradientStop Color="Black" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+                            </Rectangle>
+                            <Ellipse x:Name="ColorFieldMarker" Width="14" Height="14" Stroke="White" StrokeThickness="2"
+                                     Fill="Transparent" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
+                        </Grid>
+                        <Border x:Name="HueField" Height="18" Margin="0,12,0,12" CornerRadius="4" Cursor="Hand"
+                                MouseLeftButtonDown="HueField_MouseInput" MouseMove="HueField_MouseInput">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="#FFFF0000" Offset="0"/><GradientStop Color="#FFFFFF00" Offset="0.167"/>
+                                    <GradientStop Color="#FF00FF00" Offset="0.333"/><GradientStop Color="#FF00FFFF" Offset="0.5"/>
+                                    <GradientStop Color="#FF0000FF" Offset="0.667"/><GradientStop Color="#FFFF00FF" Offset="0.833"/>
+                                    <GradientStop Color="#FFFF0000" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Border x:Name="ColorPickerPreview" Width="30" Height="30" CornerRadius="5" BorderBrush="#55FFFFFF" BorderThickness="1" />
+                            <TextBox x:Name="ColorPickerHex" Grid.Column="1" Margin="8,0" IsReadOnly="True" VerticalContentAlignment="Center" />
+                            <Button Grid.Column="2" Content="Done" Click="ColorPickerDone_Click" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Popup>
         </Grid>
     </Border>
 </Window>
