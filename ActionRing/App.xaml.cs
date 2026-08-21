@@ -15,6 +15,7 @@ public partial class App : System.Windows.Application
     private Mutex? _singleInstance;
     private HotKeyManager? _hotKeys;
     private NotifyIcon? _tray;
+    private TrayMenuWindow? _trayMenuWindow;
     private RingWindow? _ring;
     private SettingsWindow? _settings;
     private RingConfig _config = new();
@@ -39,6 +40,7 @@ public partial class App : System.Windows.Application
 
         _config = RingConfig.Load();
         ApplyRenderMode();
+        NativeMethods.EnableDarkSystemMenus();
 
         _tray = CreateTrayIcon();
         RegisterHotKey();
@@ -106,42 +108,67 @@ public partial class App : System.Windows.Application
 
     private NotifyIcon CreateTrayIcon()
     {
-        var menu = new ContextMenuStrip
-        {
-            BackColor = System.Drawing.Color.FromArgb(0x29, 0x29, 0x29),
-            ForeColor = System.Drawing.Color.FromArgb(0xF5, 0xF5, 0xF5),
-            Renderer = new DarkTrayMenuRenderer(),
-            ShowImageMargin = false,
-            ShowCheckMargin = false,
-            Padding = new Padding(2),
-        };
-        menu.Items.Add("Show ring", null, (_, _) => Ring().ShowRing());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Settings...", null, (_, _) => ShowSettings());
-        menu.Items.Add("Edit JSON...", null, (_, _) => OpenConfig());
-        menu.Items.Add("Reload settings", null, (_, _) => ReloadConfig());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => Shutdown());
-
-        foreach (ToolStripItem item in menu.Items)
-        {
-            item.ForeColor = menu.ForeColor;
-            if (item is ToolStripMenuItem)
-                item.Padding = new Padding(10, 4, 24, 4);
-        }
+        _trayMenuWindow = new TrayMenuWindow();
 
         var icon = new NotifyIcon
         {
             Icon = LoadIcon(),
             Visible = true,
             Text = $"Action Ring  -  {_config.HotKey}",
-            ContextMenuStrip = menu,
         };
-        icon.MouseClick += (_, args) =>
+        icon.MouseUp += (_, args) =>
         {
             if (args.Button == MouseButtons.Left) Ring().ShowRing();
+            else if (args.Button == MouseButtons.Right) ShowTrayMenu();
         };
         return icon;
+    }
+
+    private void ShowTrayMenu()
+    {
+        var menu = NativeMethods.CreatePopupMenu();
+        if (menu == IntPtr.Zero) return;
+
+        try
+        {
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, 1, "Show ring");
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, 0, null);
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, 2, "Settings...");
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, 3, "Edit JSON...");
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, 4, "Reload settings");
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, 0, null);
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, 5, "Exit");
+
+            if (!NativeMethods.GetCursorPos(out var cursor)) return;
+
+            // A native popup must have a real owner window. The NotifyIcon's
+            // internal handle is private, so use our own lightweight hidden one.
+            var owner = _trayMenuWindow?.Handle ?? IntPtr.Zero;
+            if (owner == IntPtr.Zero) return;
+
+            NativeMethods.SetForegroundWindow(owner);
+            var command = NativeMethods.TrackPopupMenuEx(
+                menu,
+                NativeMethods.TPM_RIGHTBUTTON | NativeMethods.TPM_RETURNCMD | NativeMethods.TPM_NONOTIFY,
+                cursor.X,
+                cursor.Y,
+                owner,
+                IntPtr.Zero);
+            NativeMethods.PostMessage(owner, NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero);
+
+            switch (command)
+            {
+                case 1: Ring().ShowRing(); break;
+                case 2: ShowSettings(); break;
+                case 3: OpenConfig(); break;
+                case 4: ReloadConfig(); break;
+                case 5: Shutdown(); break;
+            }
+        }
+        finally
+        {
+            NativeMethods.DestroyMenu(menu);
+        }
     }
 
     private static System.Drawing.Icon LoadIcon()
@@ -244,6 +271,9 @@ public partial class App : System.Windows.Application
             _tray.Visible = false;
             _tray.Dispose();
         }
+
+        _trayMenuWindow?.Dispose();
+        _trayMenuWindow = null;
 
         _singleInstance?.Dispose();
         base.OnExit(e);

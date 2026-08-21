@@ -6,6 +6,7 @@ internal static class NativeMethods
 {
     // ---- window styles -------------------------------------------------
     public const int GWL_EXSTYLE = -20;
+    public const int WS_POPUP = unchecked((int)0x80000000);
     public const int WS_EX_TOOLWINDOW = 0x00000080;
     public const int WS_EX_NOACTIVATE = 0x08000000;
 
@@ -20,6 +21,64 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    // ---- native popup menus -------------------------------------------
+    public const uint MF_STRING = 0x0000;
+    public const uint MF_SEPARATOR = 0x0800;
+    public const uint TPM_RIGHTBUTTON = 0x0002;
+    public const uint TPM_NONOTIFY = 0x0080;
+    public const uint TPM_RETURNCMD = 0x0100;
+    public const uint WM_NULL = 0x0000;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr CreatePopupMenu();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool AppendMenu(
+        IntPtr hMenu, uint uFlags, nuint uIDNewItem, string? lpNewItem);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint TrackPopupMenuEx(
+        IntPtr hMenu, uint uFlags, int x, int y, IntPtr hWnd, IntPtr lptpm);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyMenu(IntPtr hMenu);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool PostMessage(
+        IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private enum PreferredAppMode
+    {
+        Default,
+        AllowDark,
+        ForceDark,
+        ForceLight,
+    }
+
+    // Windows exposes the app-wide dark-menu opt-in by ordinal rather than as
+    // a documented named export. Guard the call so older Windows 10 builds can
+    // continue with their system-default menu instead of failing at startup.
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    private static extern PreferredAppMode SetPreferredAppMode(PreferredAppMode appMode);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    private static extern void FlushMenuThemes();
+
+    public static void EnableDarkSystemMenus()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 18362)) return;
+
+        try
+        {
+            SetPreferredAppMode(PreferredAppMode.ForceDark);
+            FlushMenuThemes();
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // The native popup still works; Windows chooses its default theme.
+        }
+    }
 
     // ---- hotkeys -------------------------------------------------------
     public const int WM_HOTKEY = 0x0312;

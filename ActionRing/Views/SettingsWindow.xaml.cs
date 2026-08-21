@@ -40,6 +40,19 @@ public sealed record ActionPreset(RingAction Action)
 public sealed record ActionPresetCategory(string Name, IReadOnlyList<ActionPreset> Items, string Description = "")
 {
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    public string Icon => Name switch
+    {
+        "MEDIA & VOLUME" => "\uE995",
+        "OPEN" => "\uF0E2",
+        "WINDOWS" => "\uE770",
+        "SYSTEM" => "\uE713",
+        "MOUSE" => "\uE962",
+        "KEYBOARD" => "\uE765",
+        "DATE AND TIME" => "\uE917",
+        "CLIPBOARD" => "\uE8C8",
+        _ => "\uE8FD",
+    };
 }
 
 public sealed class ActionItemViewModel : INotifyPropertyChanged
@@ -562,7 +575,6 @@ public partial class SettingsWindow : Window
     }
 
     private void GeneralNav_Click(object sender, RoutedEventArgs e) => ShowGeneral();
-    private void ActionsNav_Click(object sender, RoutedEventArgs e) => ShowActions();
     private void ActionsRingNav_Click(object sender, RoutedEventArgs e) => ShowActionsRing();
 
     private void ShowGeneral()
@@ -571,23 +583,8 @@ public partial class SettingsWindow : Window
         ActionsPage.Visibility = Visibility.Collapsed;
         ActionsRingPage.Visibility = Visibility.Collapsed;
         GeneralNav.Background = (Brush)FindResource("NavSelectedBrush");
-        ActionsNav.Background = Brushes.Transparent;
         ActionsRingNav.Background = Brushes.Transparent;
         GeneralIndicator.Visibility = Visibility.Visible;
-        ActionsIndicator.Visibility = Visibility.Collapsed;
-        ActionsRingIndicator.Visibility = Visibility.Collapsed;
-    }
-
-    private void ShowActions()
-    {
-        GeneralPage.Visibility = Visibility.Collapsed;
-        ActionsPage.Visibility = Visibility.Visible;
-        ActionsRingPage.Visibility = Visibility.Collapsed;
-        GeneralNav.Background = Brushes.Transparent;
-        ActionsNav.Background = (Brush)FindResource("NavSelectedBrush");
-        ActionsRingNav.Background = Brushes.Transparent;
-        GeneralIndicator.Visibility = Visibility.Collapsed;
-        ActionsIndicator.Visibility = Visibility.Visible;
         ActionsRingIndicator.Visibility = Visibility.Collapsed;
     }
 
@@ -597,10 +594,8 @@ public partial class SettingsWindow : Window
         ActionsPage.Visibility = Visibility.Collapsed;
         ActionsRingPage.Visibility = Visibility.Visible;
         GeneralNav.Background = Brushes.Transparent;
-        ActionsNav.Background = Brushes.Transparent;
         ActionsRingNav.Background = (Brush)FindResource("NavSelectedBrush");
         GeneralIndicator.Visibility = Visibility.Collapsed;
-        ActionsIndicator.Visibility = Visibility.Collapsed;
         ActionsRingIndicator.Visibility = Visibility.Visible;
         ShowRingActionsTab();
         UpdateRingSelectionUi();
@@ -620,7 +615,7 @@ public partial class SettingsWindow : Window
         ], "Mouse scroll on any of these items will change the volume."),
         new("OPEN",
         [
-            Preset("Open App/File/Folder", "", ActionKind.Launch, ""),
+            Preset("Open App/File/Folder", "\uF0E2", ActionKind.Launch, ""),
             Preset("Open Web Page (URL)", "", ActionKind.Url, "https://"),
             Preset("Windows Explorer", "", ActionKind.Launch, "explorer.exe"),
             Preset("Windows Terminal", "", ActionKind.Launch, "wt.exe"),
@@ -628,7 +623,7 @@ public partial class SettingsWindow : Window
             Preset("Task View", "", ActionKind.Keys, "Win+Tab"),
             Preset("Windows Run", "", ActionKind.Keys, "Win+R"),
             Preset("Control Panel", "", ActionKind.Launch, "control.exe"),
-        ]),
+        ], "Open apps, files, folders, web pages, and Windows tools."),
         new("WINDOWS",
         [
             Preset("Show desktop", "", ActionKind.Keys, "Win+D"),
@@ -643,16 +638,16 @@ public partial class SettingsWindow : Window
             Preset("Minimize window", "", ActionKind.Keys, "Win+Down"),
             Preset("Move window to center", "\uE7C2", ActionKind.Command, "WindowCenter"),
             Preset("Settings", "\uE713", ActionKind.Command, "WindowsSettings"),
-        ]),
+        ], "Manage windows, desktops, screenshots, and display layout."),
         new("SYSTEM",
         [
-            Preset("Screen Brightness", "\uE706", ActionKind.Command, "BrightnessUp", scroll: ScrollBehavior.Brightness),
+            Preset("Brightness control", "\uE706", ActionKind.Command, "BrightnessUp", scroll: ScrollBehavior.Brightness),
             Preset("Lock Windows", "", ActionKind.Keys, "Win+L"),
             Preset("Quick settings", "", ActionKind.Keys, "Win+A"),
             Preset("Search", "", ActionKind.Keys, "Win+S"),
             Preset("Project display", "", ActionKind.Keys, "Win+P"),
             Preset("Accessibility", "", ActionKind.Keys, "Win+U"),
-        ]),
+        ], "Control brightness and access common Windows system features."),
         new("MOUSE",
         [
             Preset("Move mouse cursor", "\uE962", ActionKind.MousePosition, "0, 0"),
@@ -660,7 +655,7 @@ public partial class SettingsWindow : Window
             Preset("Right click", "\uE962", ActionKind.Command, "MouseRightClick"),
             Preset("Middle click", "\uE962", ActionKind.Command, "MouseMiddleClick"),
             Preset("Move to screen center", "\uE962", ActionKind.Command, "MouseCenter"),
-        ]),
+        ], "Move the pointer or perform common mouse clicks."),
         new("KEYBOARD",
         [
             Preset("Keyboard Shortcut", "", ActionKind.Keys, "Ctrl+Shift+S"),
@@ -669,7 +664,7 @@ public partial class SettingsWindow : Window
             Preset("Undo", "", ActionKind.Keys, "Ctrl+Z"),
             Preset("Redo", "", ActionKind.Keys, "Ctrl+Y"),
             Preset("Select all", "", ActionKind.Keys, "Ctrl+A"),
-        ]),
+        ], "Run shortcuts, paste text, and access common keyboard actions."),
         new("DATE AND TIME",
         [
             Preset("Paste current date", "", ActionKind.DateTime, "yyyy-MM-dd"),
@@ -677,7 +672,7 @@ public partial class SettingsWindow : Window
             Preset("Paste Week number", "", ActionKind.DateTime, "week"),
             Preset("Paste current time", "\uE917", ActionKind.DateTime, "HH:mm:ss"),
             Preset("Paste date and time", "\uEC92", ActionKind.DateTime, "yyyy-MM-dd HH:mm:ss"),
-        ]),
+        ], "Paste dates, times, week numbers, and UNIX timestamps."),
         new("CLIPBOARD",
         [
             Preset("Copy", "", ActionKind.Clipboard, "copy"), Preset("Paste", "", ActionKind.Clipboard, "paste"),
@@ -690,7 +685,7 @@ public partial class SettingsWindow : Window
             Preset("Lowercase clipboard", "\uE8D2", ActionKind.Clipboard, "lower"),
             Preset("Trim clipboard", "\uE78A", ActionKind.Clipboard, "trim"),
             Preset("Clipboard history", "", ActionKind.Keys, "Win+V"),
-        ]),
+        ], "Copy, paste, transform, and manage clipboard content."),
     ];
 
     private static ActionPreset Preset(string label, string glyph, ActionKind kind, string target,
@@ -2069,5 +2064,11 @@ public partial class SettingsWindow : Window
     {
         Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
         e.Handled = true;
+    }
+
+    private void ExternalLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string url })
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 }
