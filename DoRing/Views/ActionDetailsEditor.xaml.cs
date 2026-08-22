@@ -11,6 +11,13 @@ public partial class ActionDetailsEditor : UserControl
 {
     private ActionItemViewModel? _watched;
 
+    /// <summary>
+    /// The glyph last chosen from each source while editing the current action,
+    /// so hopping between sources returns to your own pick instead of resetting
+    /// to the source's first icon.
+    /// </summary>
+    private readonly Dictionary<ActionIconKind, string> _chosenPerSource = [];
+
     public ActionDetailsEditor()
     {
         InitializeComponent();
@@ -38,6 +45,9 @@ public partial class ActionDetailsEditor : UserControl
     {
         Watch(Action);
         if (Action is null) return;
+        _chosenPerSource.Clear();
+        if (Action.IconKind != ActionIconKind.AppIcon && !string.IsNullOrEmpty(Action.Glyph))
+            _chosenPerSource[Action.IconKind] = Action.Glyph;
         GlyphSearch.Clear();
         GlyphCatalog.Select(Action.IconKind, Action.Glyph);
         RefreshGlyphs(scrollToSelection: true);
@@ -57,8 +67,23 @@ public partial class ActionDetailsEditor : UserControl
     private void Action_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(ActionItemViewModel.IconKind) || Action is null) return;
+        // Custom Icons has no glyph list, so it keeps whatever glyph the action
+        // carried - switching back to a font source should not have lost it.
+        if (Action.IconKind == ActionIconKind.AppIcon) return;
+
+        // A glyph only means something inside the font it came from, so a source
+        // switch restores whatever was last picked from the source being opened,
+        // falling back to its first icon. The search box is cleared for the same
+        // reason: a query typed against the old font would hide the new list.
+        GlyphSearch.Clear();
+        var catalog = GlyphCatalog.For(Action.IconKind);
+        if (_chosenPerSource.TryGetValue(Action.IconKind, out var remembered))
+            Action.Glyph = remembered;
+        else if (!catalog.Contains(Action.Glyph) && catalog.All.Count > 0)
+            Action.Glyph = catalog.All[0].Glyph;
+
         GlyphCatalog.Select(Action.IconKind, Action.Glyph);
-        RefreshGlyphs(scrollToSelection: true);
+        RefreshGlyphs(scrollToSelection: true, scrollToTop: true);
     }
 
     private void GlyphSearch_TextChanged(object sender, TextChangedEventArgs e)
@@ -70,21 +95,27 @@ public partial class ActionDetailsEditor : UserControl
         RefreshGlyphs();
     }
 
-    private void RefreshGlyphs(bool scrollToSelection = false)
+    private void RefreshGlyphs(bool scrollToSelection = false, bool scrollToTop = false)
     {
         if (GlyphList is null || Action is null) return;
         var rows = GlyphCatalog.For(Action.IconKind).Filter(GlyphSearch?.Text);
         GlyphList.ItemsSource = rows;
-        if (!scrollToSelection || Action is null) return;
-        var selectedRow = rows.FirstOrDefault(row => row.Any(option => option.Glyph == Action.Glyph));
-        if (selectedRow is not null)
-            Dispatcher.BeginInvoke(() => GlyphList.ScrollIntoView(selectedRow));
+        if (rows.Count == 0 || (!scrollToSelection && !scrollToTop)) return;
+        // The selected glyph wins; scrollToTop is the fallback for a list where
+        // nothing is selected, so a freshly opened source starts at its top.
+        var target = scrollToSelection
+            ? rows.FirstOrDefault(row => row.Any(option => option.Glyph == Action.Glyph))
+            : null;
+        target ??= scrollToTop ? rows[0] : null;
+        if (target is not null)
+            Dispatcher.BeginInvoke(() => GlyphList.ScrollIntoView(target));
     }
 
     private void Glyph_Click(object sender, RoutedEventArgs e)
     {
         if (Action is null || sender is not Button { DataContext: GlyphOption option }) return;
         Action.Glyph = option.Glyph;
+        _chosenPerSource[Action.IconKind] = option.Glyph;
         GlyphCatalog.Select(Action.IconKind, option.Glyph);
         RefreshGlyphs();
     }

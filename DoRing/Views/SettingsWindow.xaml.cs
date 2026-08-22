@@ -463,13 +463,17 @@ internal sealed partial class GlyphCatalog
         _ = Emoji.All;
     }
 
+    /// <summary>Whether this source can draw <paramref name="glyph"/>.</summary>
+    public bool Contains(string? glyph) =>
+        !string.IsNullOrEmpty(glyph) && All.Any(option => option.Glyph == glyph);
+
     /// <summary>
-    /// Marks the chosen glyph in its own catalog and clears the other, so
+    /// Marks the chosen glyph in its own catalog and clears the others, so
     /// switching icon source never leaves a stale highlight behind.
     /// </summary>
     public static void Select(ActionIconKind kind, string? glyph)
     {
-        foreach (var catalog in new[] { Fluent, SimpleIcons })
+        foreach (var catalog in new[] { Fluent, SimpleIcons, Emoji })
             foreach (var option in catalog.All)
                 option.IsSelected = catalog.Kind == kind && option.Glyph == glyph;
     }
@@ -1132,15 +1136,6 @@ public partial class SettingsWindow : Window
 
     private static IReadOnlyList<ActionPresetCategory> CreateActionCategories() =>
     [
-        new("MEDIA & VOLUME",
-        [
-            Preset("Play/Pause", "", ActionKind.Command, "MediaPlayPause", scroll: ScrollBehavior.Volume),
-            Preset("Mute", "", ActionKind.Command, "VolumeMute", scroll: ScrollBehavior.Volume),
-            Preset("Previous", "", ActionKind.Command, "MediaPreviousTrack", scroll: ScrollBehavior.Volume),
-            Preset("Next", "", ActionKind.Command, "MediaNextTrack", scroll: ScrollBehavior.Volume),
-            Preset("Stop", "", ActionKind.Command, "MediaStop", scroll: ScrollBehavior.Volume),
-            Preset("Volume", "\uE995", ActionKind.Command, "Volume", scroll: ScrollBehavior.Volume),
-        ], "Mouse scroll on any of these items will change the volume."),
         new("OPEN",
         [
             Preset("Open App/File/Folder", "\uF0E2", ActionKind.Launch, ""),
@@ -1152,6 +1147,32 @@ public partial class SettingsWindow : Window
             Preset("Windows Run", "", ActionKind.Keys, "Win+R"),
             Preset("Control Panel", "\uE90F", ActionKind.Launch, "control.exe"),
         ], "Open apps, files, folders, web pages, and Windows tools."),
+        new("MEDIA & VOLUME",
+        [
+            Preset("Play/Pause", "", ActionKind.Command, "MediaPlayPause", scroll: ScrollBehavior.Volume),
+            Preset("Mute", "", ActionKind.Command, "VolumeMute", scroll: ScrollBehavior.Volume),
+            Preset("Previous", "", ActionKind.Command, "MediaPreviousTrack", scroll: ScrollBehavior.Volume),
+            Preset("Next", "", ActionKind.Command, "MediaNextTrack", scroll: ScrollBehavior.Volume),
+            Preset("Stop", "", ActionKind.Command, "MediaStop", scroll: ScrollBehavior.Volume),
+            Preset("Volume", "\uE995", ActionKind.Command, "Volume", scroll: ScrollBehavior.Volume),
+        ], "Mouse scroll on any of these items will change the volume."),
+        new("KEYBOARD",
+        [
+            Preset("Keyboard Shortcut", "", ActionKind.Keys, "Ctrl+Shift+S"),
+            Preset("Paste Text", "", ActionKind.PasteText, ""),
+            Preset("Emoji", "\uE76E", ActionKind.Keys, "Win+Period"),
+            Preset("Undo", "", ActionKind.Keys, "Ctrl+Z"),
+            Preset("Redo", "", ActionKind.Keys, "Ctrl+Y"),
+            Preset("Select all", "", ActionKind.Keys, "Ctrl+A"),
+        ], "Run shortcuts, paste text, and access common keyboard actions."),
+        new("MOUSE",
+        [
+            Preset("Move mouse cursor", "\uE962", ActionKind.MousePosition, "0, 0"),
+            Preset("Left click", "\uE962", ActionKind.Command, "MouseLeftClick"),
+            Preset("Right click", "\uE962", ActionKind.Command, "MouseRightClick"),
+            Preset("Middle click", "\uE962", ActionKind.Command, "MouseMiddleClick"),
+            Preset("Move to screen center", "\uE962", ActionKind.Command, "MouseCenter"),
+        ], "Move the pointer or perform common mouse clicks."),
         new("WINDOWS",
         [
             Preset("Show desktop", "", ActionKind.Keys, "Win+D"),
@@ -1165,6 +1186,10 @@ public partial class SettingsWindow : Window
             Preset("Maximize window", "\uE922", ActionKind.Keys, "Win+Up"),
             Preset("Minimize window", "", ActionKind.Keys, "Win+Down"),
             Preset("Move window to center", "\uE7C2", ActionKind.Command, "WindowCenter"),
+            Preset("Move window to left", "", ActionKind.Command, "WindowLeft"),
+            Preset("Move window to right", "", ActionKind.Command, "WindowRight"),
+            Preset("Move window to top left", "", ActionKind.Command, "WindowTopLeft"),
+            Preset("Move window to bottom right", "", ActionKind.Command, "WindowBottomRight"),
             Preset("Settings", "\uE713", ActionKind.Command, "WindowsSettings"),
         ], "Manage windows, desktops, screenshots, and display layout."),
         new("SYSTEM",
@@ -1174,31 +1199,6 @@ public partial class SettingsWindow : Window
             Preset("Project display", "", ActionKind.Keys, "Win+P"),
             Preset("Accessibility", "", ActionKind.Keys, "Win+U"),
         ], "Access common Windows system features."),
-        new("MOUSE",
-        [
-            Preset("Move mouse cursor", "\uE962", ActionKind.MousePosition, "0, 0"),
-            Preset("Left click", "\uE962", ActionKind.Command, "MouseLeftClick"),
-            Preset("Right click", "\uE962", ActionKind.Command, "MouseRightClick"),
-            Preset("Middle click", "\uE962", ActionKind.Command, "MouseMiddleClick"),
-            Preset("Move to screen center", "\uE962", ActionKind.Command, "MouseCenter"),
-        ], "Move the pointer or perform common mouse clicks."),
-        new("KEYBOARD",
-        [
-            Preset("Keyboard Shortcut", "", ActionKind.Keys, "Ctrl+Shift+S"),
-            Preset("Paste Text", "", ActionKind.PasteText, ""),
-            Preset("Emoji", "\uE76E", ActionKind.Keys, "Win+Period"),
-            Preset("Undo", "", ActionKind.Keys, "Ctrl+Z"),
-            Preset("Redo", "", ActionKind.Keys, "Ctrl+Y"),
-            Preset("Select all", "", ActionKind.Keys, "Ctrl+A"),
-        ], "Run shortcuts, paste text, and access common keyboard actions."),
-        new("DATE AND TIME",
-        [
-            Preset("Paste current date", "", ActionKind.DateTime, "yyyy-MM-dd"),
-            Preset("Paste UNIX timestamp", "\uE917", ActionKind.DateTime, "unix"),
-            Preset("Paste Week number", "", ActionKind.DateTime, "week"),
-            Preset("Paste current time", "\uE917", ActionKind.DateTime, "HH:mm:ss"),
-            Preset("Paste date and time", "\uEC92", ActionKind.DateTime, "yyyy-MM-dd HH:mm:ss"),
-        ], "Paste dates, times, week numbers, and UNIX timestamps."),
         new("CLIPBOARD",
         [
             Preset("Copy", "", ActionKind.Clipboard, "copy"), Preset("Paste", "", ActionKind.Clipboard, "paste"),
@@ -1212,6 +1212,14 @@ public partial class SettingsWindow : Window
             Preset("Trim clipboard", "\uE78A", ActionKind.Clipboard, "trim"),
             Preset("Clipboard history", "\uF0E3", ActionKind.Keys, "Win+V"),
         ], "Copy, paste, transform, and manage clipboard content."),
+        new("DATE AND TIME",
+        [
+            Preset("Paste current date", "", ActionKind.DateTime, "yyyy-MM-dd"),
+            Preset("Paste UNIX timestamp", "\uE917", ActionKind.DateTime, "unix"),
+            Preset("Paste Week number", "", ActionKind.DateTime, "week"),
+            Preset("Paste current time", "\uE917", ActionKind.DateTime, "HH:mm:ss"),
+            Preset("Paste date and time", "\uEC92", ActionKind.DateTime, "yyyy-MM-dd HH:mm:ss"),
+        ], "Paste dates, times, week numbers, and UNIX timestamps."),
     ];
 
     private static ActionPreset Preset(string label, string glyph, ActionKind kind, string target,

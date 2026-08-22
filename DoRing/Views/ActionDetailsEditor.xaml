@@ -173,7 +173,7 @@
                            Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,4,0,12" TextWrapping="Wrap" />
                 <TextBlock Text="Arguments" FontWeight="SemiBold" />
                 <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,4" />
-                <TextBlock Text="Custom arguments. You can also use %path% for the folder open in Explorer and %sel% for the selected item — both are blank if Explorer isn’t open."
+                <TextBlock Text="Custom arguments. You can also use %path% for the folder open in Explorer and %sel% for the selected item; both are blank if Explorer isn’t open."
                            Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap" />
             </StackPanel>
 

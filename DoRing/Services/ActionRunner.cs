@@ -105,7 +105,11 @@ public static class ActionRunner
             case "MouseRightClick": SendMouseButton(NativeMethods.MOUSEEVENTF_RIGHTDOWN, NativeMethods.MOUSEEVENTF_RIGHTUP); break;
             case "MouseMiddleClick": SendMouseButton(NativeMethods.MOUSEEVENTF_MIDDLEDOWN, NativeMethods.MOUSEEVENTF_MIDDLEUP); break;
             case "MouseCenter": NativeMethods.SetCursorPos(NativeMethods.GetSystemMetrics(0) / 2, NativeMethods.GetSystemMetrics(1) / 2); break;
-            case "WindowCenter": CenterForegroundWindow(); break;
+            case "WindowCenter": MoveForegroundWindow(WindowSpot.Center); break;
+            case "WindowLeft": MoveForegroundWindow(WindowSpot.Left); break;
+            case "WindowRight": MoveForegroundWindow(WindowSpot.Right); break;
+            case "WindowTopLeft": MoveForegroundWindow(WindowSpot.TopLeft); break;
+            case "WindowBottomRight": MoveForegroundWindow(WindowSpot.BottomRight); break;
             case "WindowsSettings": Start("ms-settings:", ""); break;
             case "ClearClipboard": Clipboard.Clear(); break;
             default: SendCombo(command); break;
@@ -119,7 +123,14 @@ public static class ActionRunner
             System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.INPUT>());
     }
 
-    private static void CenterForegroundWindow()
+    private enum WindowSpot { Left, Center, Right, TopLeft, BottomRight }
+
+    /// <summary>
+    /// Moves - never resizes - the foreground window inside its monitor's work
+    /// area. Left/Right pin it to that edge and leave the vertical position
+    /// alone; Center places it in the middle on both axes; the corners pin both.
+    /// </summary>
+    private static void MoveForegroundWindow(WindowSpot spot)
     {
         var window = NativeMethods.GetForegroundWindow();
         if (window == IntPtr.Zero) return;
@@ -131,8 +142,19 @@ public static class ActionRunner
         if (!NativeMethods.GetMonitorInfo(monitor, ref info)) return;
         var width = bounds.Right - bounds.Left;
         var height = bounds.Bottom - bounds.Top;
-        var x = info.rcWork.Left + (info.rcWork.Right - info.rcWork.Left - width) / 2;
-        var y = info.rcWork.Top + (info.rcWork.Bottom - info.rcWork.Top - height) / 2;
+        var x = spot switch
+        {
+            WindowSpot.Left or WindowSpot.TopLeft => info.rcWork.Left,
+            WindowSpot.Right or WindowSpot.BottomRight => info.rcWork.Right - width,
+            _ => info.rcWork.Left + (info.rcWork.Right - info.rcWork.Left - width) / 2,
+        };
+        var y = spot switch
+        {
+            WindowSpot.TopLeft => info.rcWork.Top,
+            WindowSpot.BottomRight => info.rcWork.Bottom - height,
+            WindowSpot.Center => info.rcWork.Top + (info.rcWork.Bottom - info.rcWork.Top - height) / 2,
+            _ => bounds.Top,
+        };
         NativeMethods.SetWindowPos(window, IntPtr.Zero, x, y, 0, 0,
             NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
     }
