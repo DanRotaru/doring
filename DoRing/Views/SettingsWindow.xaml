@@ -360,7 +360,18 @@
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="Keyboard shortcut" Style="{StaticResource SettingName}" /><Button x:Name="ResetHotKey" Tag="HotKey" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
                                     <TextBlock Text="The global shortcut that opens DoRing." Style="{StaticResource Caption}" />
                                 </StackPanel>
-                                <TextBox x:Name="HotKeyBox" Grid.Column="1" VerticalAlignment="Center" />
+                                <TextBox x:Name="HotKeyBox" Grid.Column="1" Width="180"
+                                         HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <Button x:Name="PickHotKeyButton" Grid.Column="2" Margin="10,0,0,0"
+                                        MinWidth="80" VerticalAlignment="Center" Cursor="Hand"
+                                        ToolTip="Press the shortcut you want, or Esc to cancel."
+                                        Click="PickHotKey_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE765;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                   FontSize="15" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                        <TextBlock x:Name="PickHotKeyLabel" Text="Pick" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                         </Border>
 

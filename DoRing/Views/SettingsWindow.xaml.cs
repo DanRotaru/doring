@@ -743,6 +743,82 @@ public partial class SettingsWindow : Window
             slider.ValueChanged += (_, _) => UpdateResetButtons();
     }
 
+    // ---- hotkey picker --------------------------------------------------
+    // While picking, the window swallows every key so the combination lands in
+    // the box instead of driving the settings UI (or opening the Alt menu).
+
+    private bool _pickingHotKey;
+
+    private void PickHotKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pickingHotKey) { EndHotKeyPick(); return; }
+
+        _pickingHotKey = true;
+        PickHotKeyLabel.Text = "Press…";
+        PickHotKeyButton.Focus();
+        AddHandler(PreviewKeyDownEvent, new KeyEventHandler(HotKeyPick_PreviewKeyDown), true);
+        AddHandler(PreviewKeyUpEvent, new KeyEventHandler(HotKeyPick_PreviewKeyUp), true);
+        Deactivated += HotKeyPick_Deactivated;
+    }
+
+    private void EndHotKeyPick()
+    {
+        if (!_pickingHotKey) return;
+        _pickingHotKey = false;
+        PickHotKeyLabel.Text = "Pick";
+        RemoveHandler(PreviewKeyDownEvent, new KeyEventHandler(HotKeyPick_PreviewKeyDown));
+        RemoveHandler(PreviewKeyUpEvent, new KeyEventHandler(HotKeyPick_PreviewKeyUp));
+        Deactivated -= HotKeyPick_Deactivated;
+    }
+
+    private void HotKeyPick_Deactivated(object? sender, EventArgs e) => EndHotKeyPick();
+
+    private void HotKeyPick_PreviewKeyUp(object sender, KeyEventArgs e) => e.Handled = true;
+
+    private void HotKeyPick_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!_pickingHotKey) return;
+        e.Handled = true;
+
+        // Alt combinations arrive as Key.System with the real key alongside.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Escape) { EndHotKeyPick(); return; }
+
+        // Modifiers on their own aren't a shortcut yet - wait for the real key.
+        if (IsModifierKey(key)) return;
+
+        var text = FormatHotKey(Keyboard.Modifiers, key);
+        if (text is null || !HotKeyParser.TryParse(text, out _, out _)) return;
+
+        HotKeyBox.Text = text;
+        EndHotKeyPick();
+    }
+
+    private static bool IsModifierKey(Key key) => key is Key.LeftCtrl or Key.RightCtrl
+        or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift
+        or Key.LWin or Key.RWin or Key.System or Key.None or Key.DeadCharProcessed
+        or Key.ImeProcessed;
+
+    private static string? FormatHotKey(ModifierKeys modifiers, Key key)
+    {
+        var name = key switch
+        {
+            Key.OemPlus or Key.Add => "Plus",
+            Key.OemMinus or Key.Subtract => "Minus",
+            Key.OemPeriod or Key.Decimal => "Period",
+            _ => key.ToString(),
+        };
+        if (string.IsNullOrEmpty(name)) return null;
+
+        var parts = new List<string>(4);
+        if (modifiers.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
+        if (modifiers.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
+        if (modifiers.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
+        if (modifiers.HasFlag(ModifierKeys.Windows)) parts.Add("Win");
+        parts.Add(name);
+        return string.Join('+', parts);
+    }
+
     private void UpdateResetButtons()
     {
         ResetHotKey.Visibility = Changed(HotKeyBox.Text, _defaults.HotKey);
