@@ -1137,7 +1137,7 @@
                         <TextBlock x:Name="StatusText" Foreground="#E87A7A" VerticalAlignment="Center" />
                         <Button Grid.Column="1" Content="Cancel" Click="Cancel_Click" Margin="0,0,8,0"
                                 MinWidth="86" Height="36" VerticalAlignment="Center" />
-                        <Button Grid.Column="2" Content="Save" Click="Save_Click" Style="{StaticResource AccentButton}"
+                        <Button Grid.Column="2" x:Name="SaveButton" Content="Save" Click="Save_Click" Style="{StaticResource AccentButton}"
                                 MinWidth="86" VerticalAlignment="Center" />
                     </Grid>
                 </Border>

@@ -606,6 +606,15 @@ public partial class SettingsWindow : Window
     private static readonly Brush ErrorStatusBrush = new SolidColorBrush(Color.FromRgb(0xE8, 0x7A, 0x7A));
     private static readonly Brush SavedStatusBrush = Brushes.White;
 
+    /// <summary>How long the Save button reads "Saved" before flipping back.</summary>
+    private static readonly TimeSpan SavedButtonDuration = TimeSpan.FromSeconds(1);
+
+    /// <summary>How long the footer keeps the "Settings saved." message.</summary>
+    private static readonly TimeSpan SavedStatusDuration = TimeSpan.FromSeconds(3);
+
+    private DispatcherTimer? _savedButtonTimer;
+    private DispatcherTimer? _savedStatusTimer;
+
     private readonly Func<RingConfig, string?> _save;
     private readonly RingConfig _defaults = RingConfig.CreateDefault();
     private readonly IReadOnlyList<RingAction> _initialActions;
@@ -2539,6 +2548,27 @@ public partial class SettingsWindow : Window
         }
 
         ShowStatus("Settings saved.", isError: false);
+        FlashSavedButton();
+    }
+
+    /// <summary>Swaps the Save button to "Saved" for a moment, then restores it.</summary>
+    private void FlashSavedButton()
+    {
+        SaveButton.Content = "Saved";
+        RestartTimer(ref _savedButtonTimer, SavedButtonDuration, () => SaveButton.Content = "Save");
+    }
+
+    private static void RestartTimer(ref DispatcherTimer? timer, TimeSpan interval, Action onTick)
+    {
+        timer?.Stop();
+        var created = new DispatcherTimer { Interval = interval };
+        timer = created;
+        created.Tick += (_, _) =>
+        {
+            created.Stop();
+            onTick();
+        };
+        created.Start();
     }
 
     /// <summary>Writes the footer message, red for problems and white for a clean save.</summary>
@@ -2546,6 +2576,9 @@ public partial class SettingsWindow : Window
     {
         StatusText.Foreground = isError ? ErrorStatusBrush : SavedStatusBrush;
         StatusText.Text = message;
+        _savedStatusTimer?.Stop();
+        if (isError || message.Length == 0) return;
+        RestartTimer(ref _savedStatusTimer, SavedStatusDuration, () => StatusText.Text = "");
     }
 
     private bool TryBuildConfig(out RingConfig config, out string error)
