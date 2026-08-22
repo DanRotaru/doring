@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Windows;
@@ -22,7 +22,7 @@ public static class ActionRunner
             switch (action.Kind)
             {
                 case ActionKind.Launch:
-                    Start(action.Target, action.Arguments);
+                    Start(action.Target, action.Arguments, restoreTo);
                     break;
 
                 case ActionKind.Group:
@@ -217,9 +217,14 @@ public static class ActionRunner
         Clipboard.SetText(value);
     }
 
-    private static void Start(string target, string arguments)
+    private static void Start(string target, string arguments, IntPtr explorerHint = default)
     {
         if (string.IsNullOrWhiteSpace(target)) return;
+
+        // %path% and %sel% are ours, so they are substituted before the
+        // environment gets a look - otherwise %path% would become PATH.
+        target = ExplorerContext.Expand(target, explorerHint);
+        arguments = ExplorerContext.Expand(arguments, explorerHint);
 
         Process.Start(new ProcessStartInfo
         {

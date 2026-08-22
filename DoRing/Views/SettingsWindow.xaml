@@ -743,8 +743,10 @@
                                         <TextBlock x:Name="TargetHint" Style="{StaticResource Caption}" Margin="0,4,0,14" />
                                         <StackPanel x:Name="ArgumentsPanel">
                                             <TextBlock Text="Arguments" FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,14"
+                                            <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,4"
                                                      VerticalContentAlignment="Center" />
+                                            <TextBlock Text="Custom arguments. You can also use %path% for the folder open in Explorer and %sel% for the selected item — both are blank if Explorer isn’t open."
+                                                       Style="{StaticResource Caption}" Margin="0,0,0,14" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBlock Text="Custom accent" FontWeight="SemiBold" />
                                         <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0"
