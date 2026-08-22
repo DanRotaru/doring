@@ -63,7 +63,7 @@ public partial class RingWindow : Window
     /// </summary>
     private const double EdgeGap = 6;
     private const double HoverScale = 1.12;
-    private const double OpenFrom = 0.86;    // scale the ring grows from
+    private const double OpenFrom = 0.9;     // scale the ring grows from
     private const double FadedSibling = 0.8; // buttons outside the open group
     private const double SubScale = 0.76;    // child button size, relative to a parent
     private const double SubGap = 8;         // clearance between the two orbits
@@ -81,6 +81,28 @@ public partial class RingWindow : Window
     /// in tens of milliseconds, and something has to give if one is stuck.
     /// </summary>
     private const long HoldDrainCapMs = 700;
+
+    /// <summary>
+    /// How long the ring takes to arrive. The fade is the shorter of the two on
+    /// purpose: the ring reads as "there" the moment it is opaque, so that is the
+    /// part that has to be quick, and the last of the growth settling under it is
+    /// what stops it looking like it simply blinked into place.
+    /// </summary>
+    private static readonly TimeSpan OpenGrow = TimeSpan.FromMilliseconds(130);
+    private static readonly TimeSpan OpenFade = TimeSpan.FromMilliseconds(80);
+
+    /// <summary>
+    /// A frame's grace before the open animation's clock starts.
+    ///
+    /// Show, place and activate all happen inside the hotkey message, but the
+    /// first frame of the window does not reach the screen until a tick or two
+    /// later. Start the clock there and that time is spent: the first frame
+    /// anyone sees is already a third of the way through a 130 ms animation, so
+    /// the ring appears to jump into the middle of its own entrance. Holding the
+    /// start until the window is up costs a frame nobody can see and buys back
+    /// the whole animation.
+    /// </summary>
+    private static readonly TimeSpan OpenLead = TimeSpan.FromMilliseconds(16);
 
     private static readonly Color HubAccent = Color.FromRgb(0xE0, 0x3E, 0x52);
     private static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(110);
@@ -136,12 +158,15 @@ public partial class RingWindow : Window
         KeyDown += OnKeyDown;
 
         // Rendering the ring dirties a few MB of pages that are dead the moment
-        // it closes. Wait a beat first, so reopening it straight away doesn't
-        // pay to fault them all back in.
+        // it closes. Wait until the app has actually gone quiet before handing
+        // them back, though: every trim is paid for in hard faults on the next
+        // summon, and at four seconds it was firing between one use and the next,
+        // which is exactly when the ring has to feel instant. Half a minute is
+        // still idle by the time anyone looks at Task Manager.
         _trimTimer = new System.Windows.Threading.DispatcherTimer(
             System.Windows.Threading.DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(4),
+            Interval = TimeSpan.FromSeconds(30),
         };
         _trimTimer.Tick += (_, _) =>
         {
@@ -166,6 +191,7 @@ public partial class RingWindow : Window
             }
             else
             {
+                OnHidden();
                 _trimTimer.Start();
                 _holdTimer.Stop();
             }
@@ -700,19 +726,42 @@ public partial class RingWindow : Window
         _previousForeground = NativeMethods.GetForegroundWindow();
 
         ResetHover();
-        UpdateLevelDisplays();
 
         // Order matters here, and getting it wrong is what made the ring blink.
-        // The window must already be fully transparent before it is shown, and
-        // it must be shown before it is moved: WPF re-applies its own layout on
-        // Show, which can override a SetWindowPos issued beforehand and snap the
-        // ring across the screen. Both steps happen while nothing is visible.
+        // The window must be fully transparent before it is shown, and shown
+        // before it is moved: WPF re-applies its own layout on Show and would
+        // override a SetWindowPos issued beforehand, snapping the ring across
+        // the screen. Neither step can be seen, because the surface the window
+        // carries into Show was blanked on the way out - see OnHidden.
         PrepareForShow();
-        Show();
+        if (!IsVisible) Show();
         PositionWindow();
         Activate();
         PlayOpen();
+
+        // Reading the master volume means standing up a Core Audio endpoint over
+        // COM, which is not much but is more than nothing, and it was sitting
+        // between the hotkey and the first frame. The value only shows up on a
+        // level button, and the ring is still fading in - a pump later is soon
+        // enough for it, and the animation gets to start on time.
+        Dispatcher.BeginInvoke(UpdateLevelDisplays,
+            System.Windows.Threading.DispatcherPriority.Background);
     }
+
+    /// <summary>
+    /// Blanks the window's retained layered surface as it goes away.
+    ///
+    /// This is what keeps the ring from stuttering open. The surface WPF last
+    /// composed - the ring, fully open, wherever it was - outlives Hide, and the
+    /// compositor puts it straight back up on the next Show, ahead of the first
+    /// real frame. The old ring appears, blinks out when that frame lands, and
+    /// only then does the animation run; whether it happens at all comes down to
+    /// which of the two reaches the screen first, which is why it was
+    /// intermittent. Clearing it here costs nothing anyone is waiting on, and
+    /// leaves the show path free to be immediate.
+    /// </summary>
+    private void OnHidden() =>
+        NativeMethods.ClearLayeredSurface(new WindowInteropHelper(this).Handle);
 
     /// <summary>
     /// Puts the ring in its pre-open state before the first frame is composed.
@@ -730,6 +779,9 @@ public partial class RingWindow : Window
         Root.BeginAnimation(OpacityProperty, null);
         scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+
+        // A summon that was dismissed mid-animation never reached Completed.
+        EndCachedFrames();
 
         Root.Opacity = 0;
         scale.ScaleX = OpenFrom;
@@ -749,7 +801,11 @@ public partial class RingWindow : Window
     {
         var hwnd = new System.Windows.Interop.WindowInteropHelper(this).EnsureHandle();
 
-        if (!NativeMethods.GetCursorPos(out var cursor)) return;
+        if (!NativeMethods.GetCursorPos(out var cursor))
+        {
+            PlaceOnPrimary(hwnd);
+            return;
+        }
 
         var monitor = NativeMethods.MonitorFromPoint(
             cursor, NativeMethods.MONITOR_DEFAULTTONEAREST);
@@ -758,7 +814,11 @@ public partial class RingWindow : Window
         {
             cbSize = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.MONITORINFO>(),
         };
-        if (!NativeMethods.GetMonitorInfo(monitor, ref info)) return;
+        if (!NativeMethods.GetMonitorInfo(monitor, ref info))
+        {
+            PlaceOnPrimary(hwnd);
+            return;
+        }
 
         var scaleX = 1.0;
         var scaleY = 1.0;
@@ -803,6 +863,25 @@ public partial class RingWindow : Window
     }
 
     /// <summary>
+    /// Last resort for when the cursor or monitor queries fail: the middle of the
+    /// primary display. Landing a few pixels out on a scaled desktop is nothing
+    /// against the alternative - the window is shown before it is placed, so
+    /// giving up without placing it leaves the ring wherever it last was, which
+    /// on a since-unplugged monitor is nowhere at all.
+    /// </summary>
+    private void PlaceOnPrimary(IntPtr hwnd)
+    {
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var width = (int)Math.Round(Width * dpi.DpiScaleX);
+        var height = (int)Math.Round(Height * dpi.DpiScaleY);
+
+        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST,
+            (NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN) - width) / 2,
+            (NativeMethods.GetSystemMetrics(NativeMethods.SM_CYSCREEN) - height) / 2,
+            width, height, NativeMethods.SWP_NOACTIVATE);
+    }
+
+    /// <summary>
     /// Clamps into [min, max], falling back to the midpoint when the ring is
     /// wider than the work area and the range has inverted.
     /// </summary>
@@ -819,17 +898,65 @@ public partial class RingWindow : Window
     {
         var scale = (ScaleTransform)Root.RenderTransform;
 
+        BeginCachedFrames();
+
         // To-only animations, so they start from whatever PrepareForShow left
-        // behind rather than snapping to a From value of their own.
-        var grow = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(150))
+        // behind rather than snapping to a From value of their own. A quartic
+        // ease-out rather than a cubic one: nearly all of the travel happens in
+        // the first third of the animation, which is what makes a short open feel
+        // immediate instead of merely brief.
+        var grow = new DoubleAnimation(1.0, OpenGrow)
         {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            BeginTime = OpenLead,
+            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
         };
+        grow.Completed += (_, _) => EndCachedFrames();
+
         scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
         scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
 
         Root.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(120)));
+            new DoubleAnimation(1.0, OpenFade) { BeginTime = OpenLead });
+    }
+
+    /// <summary>
+    /// Rasterizes the ring once and animates that, for the length of the open.
+    ///
+    /// This is what the growth costs without it. Every button is four stacked
+    /// ellipses - flat tint, gradient sheen, a *tiled* noise brush, the hover
+    /// accent - plus a glyph or a bitmap, and the ring is all of that times the
+    /// action count, under a tree-wide Opacity that needs its own intermediate
+    /// surface. Scaling re-rasterizes the lot every frame, resampling the noise
+    /// tiles as it goes, and none of it is on the GPU: HardwareAcceleration is
+    /// off by default, so this is the CPU drawing into a bitmap and handing it to
+    /// UpdateLayeredWindow. That is the stutter.
+    ///
+    /// Cached, a frame is one bitmap composited at a scale and an alpha. The
+    /// cache is rendered at device scale so it is pixel-exact at the end of the
+    /// animation, where it matters, and resampling drops to bilinear while it
+    /// runs - Fant on a few hundred pixels square, sixty times a second, is
+    /// quality nobody can see at a price they can.
+    /// </summary>
+    private void BeginCachedFrames()
+    {
+        RenderOptions.SetBitmapScalingMode(Root, BitmapScalingMode.Linear);
+        Root.CacheMode = new BitmapCache
+        {
+            RenderAtScale = Math.Max(1.0, VisualTreeHelper.GetDpi(this).DpiScaleX),
+        };
+    }
+
+    /// <summary>
+    /// Hands rendering back to the live visual tree. Leaving the cache in place
+    /// would make every hover re-rasterize the whole ring into it, which is the
+    /// opposite of the point.
+    /// </summary>
+    private void EndCachedFrames()
+    {
+        if (Root.CacheMode is null) return;
+
+        Root.CacheMode = null;
+        RenderOptions.SetBitmapScalingMode(Root, BitmapScalingMode.HighQuality);
     }
 
     // ---- hold gesture ---------------------------------------------------

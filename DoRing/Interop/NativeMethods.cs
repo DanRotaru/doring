@@ -288,7 +288,144 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool SetCursorPos(int X, int Y);
 
+    public const int SM_CXSCREEN = 0;
+    public const int SM_CYSCREEN = 1;
+
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
+    // ---- layered surface ------------------------------------------------
+    // A window with AllowsTransparency is a layered window, and the OS keeps
+    // the last surface WPF composed for it even after the window is hidden.
+    // Showing it again puts that surface straight back on screen - the old
+    // frame, at the old position - because WPF's render thread has not
+    // produced a new one yet. Wiping the surface on the way out means there is
+    // nothing stale left to flash.
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SIZE
+    {
+        public int cx;
+        public int cy;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct BLENDFUNCTION
+    {
+        public byte BlendOp;
+        public byte BlendFlags;
+        public byte SourceConstantAlpha;
+        public byte AlphaFormat;
+    }
+
+    private const byte AC_SRC_OVER = 0;
+    private const byte AC_SRC_ALPHA = 1;
+    private const uint ULW_ALPHA = 0x02;
+    private const int BI_RGB = 0;
+    private const uint DIB_RGB_COLORS = 0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BITMAPINFOHEADER
+    {
+        public int biSize;
+        public int biWidth;
+        public int biHeight;
+        public short biPlanes;
+        public short biBitCount;
+        public int biCompression;
+        public int biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public int biClrUsed;
+        public int biClrImportant;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UpdateLayeredWindow(
+        IntPtr hWnd, IntPtr hdcDst, IntPtr pptDst, ref SIZE psize,
+        IntPtr hdcSrc, ref POINT pptSrc, uint crKey,
+        ref BLENDFUNCTION pblend, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDC(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteDC(IntPtr hdc);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateDIBSection(
+        IntPtr hdc, ref BITMAPINFOHEADER pbmi, uint usage,
+        out IntPtr ppvBits, IntPtr hSection, uint offset);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr SelectObject(IntPtr hdc, IntPtr h);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr ho);
+
+    /// <summary>
+    /// Blanks a layered window's retained surface, so the next time it is shown
+    /// there is nothing on it until the renderer catches up.
+    ///
+    /// A freshly created DIB section is zero-filled, which for a premultiplied
+    /// 32-bit surface means fully transparent - so the bitmap needs no drawing,
+    /// only handing to UpdateLayeredWindow. WPF overwrites the surface on its
+    /// next frame either way; this only decides what sits there in the meantime.
+    /// </summary>
+    public static void ClearLayeredSurface(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var rect)) return;
+
+        var size = new SIZE { cx = rect.Right - rect.Left, cy = rect.Bottom - rect.Top };
+        if (size.cx <= 0 || size.cy <= 0) return;
+
+        var screen = GetDC(IntPtr.Zero);
+        if (screen == IntPtr.Zero) return;
+
+        var memory = IntPtr.Zero;
+        var bitmap = IntPtr.Zero;
+        var previous = IntPtr.Zero;
+        try
+        {
+            memory = CreateCompatibleDC(screen);
+            if (memory == IntPtr.Zero) return;
+
+            var header = new BITMAPINFOHEADER
+            {
+                biSize = Marshal.SizeOf<BITMAPINFOHEADER>(),
+                biWidth = size.cx,
+                biHeight = -size.cy,   // negative: top-down, matching the window
+                biPlanes = 1,
+                biBitCount = 32,
+                biCompression = BI_RGB,
+            };
+            bitmap = CreateDIBSection(memory, ref header, DIB_RGB_COLORS, out _, IntPtr.Zero, 0);
+            if (bitmap == IntPtr.Zero) return;
+
+            previous = SelectObject(memory, bitmap);
+
+            var origin = new POINT { X = 0, Y = 0 };
+            var blend = new BLENDFUNCTION
+            {
+                BlendOp = AC_SRC_OVER,
+                SourceConstantAlpha = 255,
+                AlphaFormat = AC_SRC_ALPHA,
+            };
+            UpdateLayeredWindow(hwnd, IntPtr.Zero, IntPtr.Zero, ref size,
+                memory, ref origin, 0, ref blend, ULW_ALPHA);
+        }
+        finally
+        {
+            if (previous != IntPtr.Zero) SelectObject(memory, previous);
+            if (bitmap != IntPtr.Zero) DeleteObject(bitmap);
+            if (memory != IntPtr.Zero) DeleteDC(memory);
+            ReleaseDC(IntPtr.Zero, screen);
+        }
+    }
 }
