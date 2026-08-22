@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
+using DoRing.Interop;
 using DoRing.Models;
 using DoRing.Services;
 
@@ -750,7 +751,11 @@ public partial class SettingsWindow : Window
         // Either checkbox - appearance page or action editor - writes the same
         // preference, so repaint the previews from the preference itself.
         IconPreferences.ColoredChanged += ColoredIcons_Changed;
-        Closed += (_, _) => IconPreferences.ColoredChanged -= ColoredIcons_Changed;
+        Closed += (_, _) =>
+        {
+            IconPreferences.ColoredChanged -= ColoredIcons_Changed;
+            _hotKeyCapture?.Dispose();
+        };
 
         foreach (var slider in new[] { TintOpacitySlider, AnimationSpeedSlider, AnimationTravelSlider })
             slider.ValueChanged += (_, _) => UpdateResetButtons();
@@ -762,6 +767,11 @@ public partial class SettingsWindow : Window
 
     private bool _pickingHotKey;
 
+    // Combos the shell owns (Win+Z and friends) never reach WPF's key events -
+    // the owner's hotkey fires first - so capture through a keyboard hook and
+    // fall back to WPF handlers only if the hook can't be installed.
+    private KeyCaptureHook? _hotKeyCapture;
+
     private void PickHotKey_Click(object sender, RoutedEventArgs e)
     {
         if (_pickingHotKey) { EndHotKeyPick(); return; }
@@ -769,8 +779,17 @@ public partial class SettingsWindow : Window
         _pickingHotKey = true;
         PickHotKeyLabel.Text = "Press…";
         PickHotKeyButton.Focus();
-        AddHandler(PreviewKeyDownEvent, new KeyEventHandler(HotKeyPick_PreviewKeyDown), true);
-        AddHandler(PreviewKeyUpEvent, new KeyEventHandler(HotKeyPick_PreviewKeyUp), true);
+
+        _hotKeyCapture ??= new KeyCaptureHook();
+        _hotKeyCapture.Captured -= HotKeyPick_Captured;
+        _hotKeyCapture.Captured += HotKeyPick_Captured;
+
+        if (!_hotKeyCapture.Start())
+        {
+            AddHandler(PreviewKeyDownEvent, new KeyEventHandler(HotKeyPick_PreviewKeyDown), true);
+            AddHandler(PreviewKeyUpEvent, new KeyEventHandler(HotKeyPick_PreviewKeyUp), true);
+        }
+
         Deactivated += HotKeyPick_Deactivated;
     }
 
@@ -779,9 +798,29 @@ public partial class SettingsWindow : Window
         if (!_pickingHotKey) return;
         _pickingHotKey = false;
         PickHotKeyLabel.Text = "Pick";
+
+        if (_hotKeyCapture is not null)
+        {
+            _hotKeyCapture.Captured -= HotKeyPick_Captured;
+            _hotKeyCapture.Stop();
+        }
+
         RemoveHandler(PreviewKeyDownEvent, new KeyEventHandler(HotKeyPick_PreviewKeyDown));
         RemoveHandler(PreviewKeyUpEvent, new KeyEventHandler(HotKeyPick_PreviewKeyUp));
         Deactivated -= HotKeyPick_Deactivated;
+    }
+
+    private void HotKeyPick_Captured(Key key, ModifierKeys modifiers)
+    {
+        if (!_pickingHotKey) return;
+        if (key == Key.Escape) { EndHotKeyPick(); return; }
+        if (IsModifierKey(key)) return;
+
+        var text = FormatHotKey(modifiers, key);
+        if (text is null || !HotKeyParser.TryParse(text, out _, out _)) return;
+
+        HotKeyBox.Text = text;
+        EndHotKeyPick();
     }
 
     private void HotKeyPick_Deactivated(object? sender, EventArgs e) => EndHotKeyPick();

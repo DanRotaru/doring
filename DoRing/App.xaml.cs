@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -246,10 +246,13 @@ public partial class App : System.Windows.Application
         _hotKeyModifiers = modifiers;
         _hotKeyKey = key;
 
+        // Register falls back to a keyboard hook when the combo is already
+        // spoken for, so a failure here means the key is unreachable outright,
+        // not merely owned by someone else.
         if (!_hotKeys.Register(modifiers, key))
         {
-            Warn($"Another app already owns {_config.HotKey}. Pick a different one in " +
-                 $"{Path.GetFileName(RingConfig.ConfigPath)}, then choose Reload config.");
+            Warn($"Windows would not let DoRing listen for {_config.HotKey}. Pick a different " +
+                 $"one in {Path.GetFileName(RingConfig.ConfigPath)}, then choose Reload config.");
         }
     }
 
