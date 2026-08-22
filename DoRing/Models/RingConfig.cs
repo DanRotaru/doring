@@ -61,6 +61,67 @@ public sealed class ScrollBehaviorJsonConverter : JsonConverter<ScrollBehavior>
             : nameof(ScrollBehavior.None));
 }
 
+/// <summary>
+/// How the ring animates. One choice covers both directions: the exit is the
+/// entrance run the other way, so the two always match.
+/// </summary>
+[JsonConverter(typeof(RingAnimationJsonConverter))]
+public enum RingAnimation
+{
+    /// <summary>The default: springs past full size and settles back.</summary>
+    Pop,
+    Elastic,
+    Zoom,
+    Drop,
+    Spin,
+    Swirl,
+    SlideLeft,
+    SlideRight,
+    SlideTop,
+    SlideBottom,
+    Tilt,
+    Whirl,
+    Unfold,
+
+    /// <summary>No animation at all: the ring is simply shown and hidden.</summary>
+    None,
+}
+
+/// <summary>
+/// Keeps a config naming an animation this build doesn't have loadable - a
+/// retired one, or a hand-typed mistake: the unknown name becomes the default
+/// rather than throwing, which would otherwise take the whole file down with it
+/// and reset every other setting.
+/// </summary>
+public sealed class RingAnimationJsonConverter : JsonConverter<RingAnimation>
+{
+    public override RingAnimation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var name = reader.GetString();
+
+            // The four slides were one setting before they had directions.
+            if (string.Equals(name, "Slide", StringComparison.OrdinalIgnoreCase))
+                return RingAnimation.SlideLeft;
+
+            return Enum.TryParse<RingAnimation>(name, ignoreCase: true, out var parsed)
+                ? parsed
+                : RingAnimation.Pop;
+        }
+
+        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var value))
+            return Enum.IsDefined(typeof(RingAnimation), value)
+                ? (RingAnimation)value
+                : RingAnimation.Pop;
+
+        throw new JsonException("Animation must be a string or number.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, RingAnimation value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString());
+}
+
 public enum ActionIconKind
 {
     Glyph,
@@ -184,6 +245,32 @@ public sealed class RingConfig
     /// <summary>Open the ring centred on the mouse instead of the screen centre.</summary>
     public bool FollowCursor { get; set; } = true;
 
+    /// <summary>Which animation the ring plays, coming and going.</summary>
+    public RingAnimation Animation { get; set; } = RingAnimation.Pop;
+
+    /// <summary>
+    /// Divides every duration in the chosen animation, so 2 is twice as fast.
+    /// Clamped to the range the settings slider offers.
+    /// </summary>
+    public double AnimationSpeed { get; set; } = 1.0;
+
+    /// <summary>
+    /// Scales how far the animation moves - the growth, the rotation, the slide -
+    /// without touching its timing or its easing.
+    /// </summary>
+    public double AnimationTravel { get; set; } = 1.0;
+
+    /// <summary>
+    /// Play the animation in reverse on the way out too. It costs a chosen action
+    /// the length of that exit, because a keystroke or a paste has to land in the
+    /// window that was focused before the ring, and the ring is that window until
+    /// it is gone. Off, the ring vanishes and the action runs at once.
+    /// </summary>
+    public bool AnimateClose { get; set; } = true;
+
+    /// <summary>Close the settings window after a successful save.</summary>
+    public bool CloseAfterSaving { get; set; } = false;
+
     /// <summary>
     /// GPU rendering. Off by default, and deliberately: standing up WPF's D3D
     /// device costs about 100 MB of working set and 50-odd driver threads, which
@@ -263,6 +350,7 @@ public sealed class RingConfig
                         if (string.IsNullOrWhiteSpace(preset.Id)) preset.Id = Guid.NewGuid().ToString("N");
                         preset.Actions ??= new();
                     }
+                    AdoptRenamedAnimationKey(document.RootElement, loaded);
                     RemoveRetiredBrightnessActions(loaded.Actions);
                     foreach (var preset in loaded.Presets)
                         RemoveRetiredBrightnessActions(preset.Actions);
@@ -279,6 +367,23 @@ public sealed class RingConfig
         var defaults = CreateDefault();
         defaults.Save();
         return defaults;
+    }
+
+    /// <summary>
+    /// Carries a config written while the entrance and the exit were still
+    /// separate settings over to the single one that replaced them. The exit is
+    /// no longer chosen, only turned on or off, so only the entrance survives.
+    /// </summary>
+    private static void AdoptRenamedAnimationKey(JsonElement root, RingConfig loaded)
+    {
+        if (root.TryGetProperty(nameof(Animation), out _)) return;
+
+        if (root.TryGetProperty("OpenAnimation", out var open) &&
+            open.ValueKind == JsonValueKind.String &&
+            Enum.TryParse<RingAnimation>(open.GetString(), ignoreCase: true, out var animation))
+        {
+            loaded.Animation = animation;
+        }
     }
 
     private static void RemoveRetiredBrightnessActions(List<RingAction> actions)

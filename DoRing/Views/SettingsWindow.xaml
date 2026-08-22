@@ -169,21 +169,85 @@
                         <Grid Background="Transparent">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <ContentPresenter VerticalAlignment="Center" />
-                            <Border x:Name="SwitchTrack" Grid.Column="1" Width="40" Height="20" Margin="20,0,0,0"
-                                    CornerRadius="10" BorderThickness="1" BorderBrush="#9A9A9A" Background="#463F46">
-                                <Ellipse x:Name="SwitchKnob" Width="12" Height="12" Margin="3"
-                                         HorizontalAlignment="Left" Fill="#E8E8E8" />
+                            <Border x:Name="SwitchTrack" Grid.Column="1" Width="44" Height="22" Margin="20,0,0,0"
+                                    CornerRadius="11" BorderThickness="1" BorderBrush="#9A9A9A" Background="#463F46">
+                                <Ellipse x:Name="SwitchKnob" Width="14" Height="14" Fill="#E8E8E8"
+                                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                                         RenderTransformOrigin="0.5,0.5">
+                                    <Ellipse.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                                            <TranslateTransform X="0" />
+                                        </TransformGroup>
+                                    </Ellipse.RenderTransform>
+                                </Ellipse>
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#D0D0D0" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                             To="1.12" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                             To="1.12" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                                                             To="1" Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                                                             To="1" Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="SwitchKnob" Property="Opacity" Value="0.85" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="SwitchTrack" Property="Background" Value="{StaticResource AccentBrush}" />
                                 <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                <Setter TargetName="SwitchKnob" Property="HorizontalAlignment" Value="Right" />
                                 <Setter TargetName="SwitchKnob" Property="Fill" Value="#111111" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
+                                                             To="22" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
+                                                             To="0" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
                         </ControlTemplate.Triggers>
@@ -335,6 +399,51 @@
                             </Grid>
                         </Border>
 
+                        <TextBlock Text="Motion" Style="{StaticResource SectionTitle}" Margin="0,26,0,10" />
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="230"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Animation" Style="{StaticResource SettingName}" /><Button x:Name="ResetAnimation" Tag="Animation" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel>
+                                    <TextBlock x:Name="AnimationCaption" Style="{StaticResource Caption}" />
+                                </StackPanel>
+                                <ComboBox x:Name="AnimationBox" Grid.Column="1" VerticalAlignment="Center"
+                                          ItemsSource="{Binding Animations}" DisplayMemberPath="Name"
+                                          SelectionChanged="AnimationBox_SelectionChanged" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Animation speed" Style="{StaticResource SettingName}" /><Button x:Name="ResetAnimationSpeed" Tag="AnimationSpeed" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Higher is quicker. Applies to both directions." Style="{StaticResource Caption}" /></StackPanel>
+                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                    <Slider x:Name="AnimationSpeedSlider" Minimum="0.5" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ElementName=AnimationSpeedSlider, Path=Value, StringFormat={}{0:0.0}&#215;}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Animation travel" Style="{StaticResource SettingName}" /><Button x:Name="ResetAnimationTravel" Tag="AnimationTravel" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="How far the ring grows, turns, or slides. Lower is subtler." Style="{StaticResource Caption}" /></StackPanel>
+                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                    <Slider x:Name="AnimationTravelSlider" Minimum="0.25" Maximum="1.75" TickFrequency="0.05" IsSnapToTickEnabled="True" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ElementName=AnimationTravelSlider, Path=Value, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="AnimateCloseCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Animate closing" Style="{StaticResource SettingName}" /><Button x:Name="ResetAnimateClose" Tag="AnimateClose" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Play the same animation in reverse on the way out. Off, the ring vanishes and a chosen action runs at once." Style="{StaticResource Caption}" TextWrapping="Wrap" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+
                         <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" Margin="0,26,0,10" />
 
                         <Border Style="{StaticResource SettingCard}">
@@ -431,6 +540,14 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <CheckBox x:Name="SettingsOnCloseRightClickCheck" Style="{StaticResource ToggleSwitch}">
                                     <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Open app settings by right click to the close button" Style="{StaticResource SettingName}" /><Button x:Name="ResetSettingsOnCloseRightClick" Tag="SettingsOnCloseRightClick" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Right-click the centre close button to open this window." Style="{StaticResource Caption}" /></StackPanel>
+                                </CheckBox>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <CheckBox x:Name="CloseAfterSavingCheck" Style="{StaticResource ToggleSwitch}">
+                                    <StackPanel><StackPanel Orientation="Horizontal"><TextBlock Text="Close settings after saving" Style="{StaticResource SettingName}" /><Button x:Name="ResetCloseAfterSaving" Tag="CloseAfterSaving" Style="{StaticResource ResetButton}" Click="ResetSetting_Click" /></StackPanel><TextBlock Text="Close this window once Save succeeds instead of staying open." Style="{StaticResource Caption}" /></StackPanel>
                                 </CheckBox>
                             </Grid>
                         </Border>

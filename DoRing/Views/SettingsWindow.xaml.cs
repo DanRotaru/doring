@@ -603,6 +603,9 @@ public partial class SettingsWindow : Window
         public Border? Label { get; set; }
     }
 
+    private static readonly Brush ErrorStatusBrush = new SolidColorBrush(Color.FromRgb(0xE8, 0x7A, 0x7A));
+    private static readonly Brush SavedStatusBrush = Brushes.White;
+
     private readonly Func<RingConfig, string?> _save;
     private readonly RingConfig _defaults = RingConfig.CreateDefault();
     private readonly IReadOnlyList<RingAction> _initialActions;
@@ -674,6 +677,7 @@ public partial class SettingsWindow : Window
     public ObservableCollection<ActionItemViewModel> Actions { get; }
     public ObservableCollection<RingPresetViewModel> Presets { get; }
     public IReadOnlyList<ActionPresetCategory> ActionCategories { get; }
+    public IReadOnlyList<RingAnimationOption> Animations => RingAnimations.Options;
     public ActionPreset DoRingSettingsPreset { get; }
     private void LoadGeneral(RingConfig config)
     {
@@ -690,10 +694,29 @@ public partial class SettingsWindow : Window
         ShowLabelsCheck.IsChecked = config.ShowLabels;
         FadeOthersOnGroupOpenCheck.IsChecked = config.FadeOthersOnGroupOpen;
         SettingsOnCloseRightClickCheck.IsChecked = config.SettingsOnCloseRightClick;
+        CloseAfterSavingCheck.IsChecked = config.CloseAfterSaving;
         HardwareAccelerationCheck.IsChecked = config.HardwareAcceleration;
         ColoredIconsCheck.IsChecked = config.ColoredIcons;
         ColoredEmojiCheck.IsChecked = config.ColoredEmoji;
+        AnimationBox.SelectedItem = Animations.FirstOrDefault(option => option.Value == config.Animation)
+            ?? Animations[0];
+        AnimationSpeedSlider.Value = Math.Clamp(config.AnimationSpeed, RingAnimations.MinSpeed, RingAnimations.MaxSpeed);
+        AnimationTravelSlider.Value = Math.Clamp(config.AnimationTravel, RingAnimations.MinTravel, RingAnimations.MaxTravel);
+        AnimateCloseCheck.IsChecked = config.AnimateClose;
     }
+
+    /// <summary>
+    /// Each animation's caption is its own description, so the card explains
+    /// whatever is picked rather than the picker as a whole.
+    /// </summary>
+    private void AnimationBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        AnimationCaption.Text = (AnimationBox.SelectedItem as RingAnimationOption)?.Description ?? "";
+        UpdateResetButtons();
+    }
+
+    private RingAnimation SelectedAnimation =>
+        (AnimationBox.SelectedItem as RingAnimationOption)?.Value ?? RingAnimation.Pop;
 
     private void WatchGeneralChanges()
     {
@@ -703,7 +726,9 @@ public partial class SettingsWindow : Window
 
         foreach (var check in new[] { HoldToActivateCheck, FollowCursorCheck,
                      ShowLabelsCheck, FadeOthersOnGroupOpenCheck, SettingsOnCloseRightClickCheck,
-                     HardwareAccelerationCheck, ColoredIconsCheck, ColoredEmojiCheck })
+                     CloseAfterSavingCheck,
+                     HardwareAccelerationCheck, ColoredIconsCheck, ColoredEmojiCheck,
+                     AnimateCloseCheck })
         {
             check.Checked += (_, _) => UpdateResetButtons();
             check.Unchecked += (_, _) => UpdateResetButtons();
@@ -714,7 +739,8 @@ public partial class SettingsWindow : Window
         IconPreferences.ColoredChanged += ColoredIcons_Changed;
         Closed += (_, _) => IconPreferences.ColoredChanged -= ColoredIcons_Changed;
 
-        TintOpacitySlider.ValueChanged += (_, _) => UpdateResetButtons();
+        foreach (var slider in new[] { TintOpacitySlider, AnimationSpeedSlider, AnimationTravelSlider })
+            slider.ValueChanged += (_, _) => UpdateResetButtons();
     }
 
     private void UpdateResetButtons()
@@ -732,9 +758,14 @@ public partial class SettingsWindow : Window
         ResetShowLabels.Visibility = Changed(ShowLabelsCheck.IsChecked == true, _defaults.ShowLabels);
         ResetFadeOthersOnGroupOpen.Visibility = Changed(FadeOthersOnGroupOpenCheck.IsChecked == true, _defaults.FadeOthersOnGroupOpen);
         ResetSettingsOnCloseRightClick.Visibility = Changed(SettingsOnCloseRightClickCheck.IsChecked == true, _defaults.SettingsOnCloseRightClick);
+        ResetCloseAfterSaving.Visibility = Changed(CloseAfterSavingCheck.IsChecked == true, _defaults.CloseAfterSaving);
         ResetHardwareAcceleration.Visibility = Changed(HardwareAccelerationCheck.IsChecked == true, _defaults.HardwareAcceleration);
         ResetColoredIcons.Visibility = Changed(ColoredIconsCheck.IsChecked == true, _defaults.ColoredIcons);
         ResetColoredEmoji.Visibility = Changed(ColoredEmojiCheck.IsChecked == true, _defaults.ColoredEmoji);
+        ResetAnimation.Visibility = Changed(SelectedAnimation, _defaults.Animation);
+        ResetAnimationSpeed.Visibility = Changed(AnimationSpeedSlider.Value, _defaults.AnimationSpeed);
+        ResetAnimationTravel.Visibility = Changed(AnimationTravelSlider.Value, _defaults.AnimationTravel);
+        ResetAnimateClose.Visibility = Changed(AnimateCloseCheck.IsChecked == true, _defaults.AnimateClose);
     }
 
     /// <summary>Repaints every preview that can show a brand-colored icon.</summary>
@@ -747,6 +778,9 @@ public partial class SettingsWindow : Window
 
     private static Visibility Changed(bool value, bool fallback) =>
         value == fallback ? Visibility.Hidden : Visibility.Visible;
+
+    private static Visibility Changed<T>(T value, T fallback) where T : struct, Enum =>
+        value.Equals(fallback) ? Visibility.Hidden : Visibility.Visible;
 
     private static Visibility Changed(double value, double fallback) =>
         Math.Abs(value - fallback) < 0.0001 ? Visibility.Hidden : Visibility.Visible;
@@ -781,9 +815,16 @@ public partial class SettingsWindow : Window
             case "ShowLabels": ShowLabelsCheck.IsChecked = _defaults.ShowLabels; break;
             case "FadeOthersOnGroupOpen": FadeOthersOnGroupOpenCheck.IsChecked = _defaults.FadeOthersOnGroupOpen; break;
             case "SettingsOnCloseRightClick": SettingsOnCloseRightClickCheck.IsChecked = _defaults.SettingsOnCloseRightClick; break;
+            case "CloseAfterSaving": CloseAfterSavingCheck.IsChecked = _defaults.CloseAfterSaving; break;
             case "HardwareAcceleration": HardwareAccelerationCheck.IsChecked = _defaults.HardwareAcceleration; break;
             case "ColoredIcons": ColoredIconsCheck.IsChecked = _defaults.ColoredIcons; break;
             case "ColoredEmoji": ColoredEmojiCheck.IsChecked = _defaults.ColoredEmoji; break;
+            case "Animation":
+                AnimationBox.SelectedItem = Animations.First(option => option.Value == _defaults.Animation);
+                break;
+            case "AnimationSpeed": AnimationSpeedSlider.Value = _defaults.AnimationSpeed; break;
+            case "AnimationTravel": AnimationTravelSlider.Value = _defaults.AnimationTravel; break;
+            case "AnimateClose": AnimateCloseCheck.IsChecked = _defaults.AnimateClose; break;
         }
         e.Handled = true;
     }
@@ -2404,18 +2445,31 @@ public partial class SettingsWindow : Window
         StatusText.Text = "";
         if (!TryBuildConfig(out var config, out var error))
         {
-            StatusText.Text = error;
+            ShowStatus(error, isError: true);
             return;
         }
 
         var saveError = _save(config);
         if (saveError is not null)
         {
-            StatusText.Text = saveError;
+            ShowStatus(saveError, isError: true);
             return;
         }
 
-        Close();
+        if (config.CloseAfterSaving)
+        {
+            Close();
+            return;
+        }
+
+        ShowStatus("Settings saved.", isError: false);
+    }
+
+    /// <summary>Writes the footer message, red for problems and white for a clean save.</summary>
+    private void ShowStatus(string message, bool isError)
+    {
+        StatusText.Foreground = isError ? ErrorStatusBrush : SavedStatusBrush;
+        StatusText.Text = message;
     }
 
     private bool TryBuildConfig(out RingConfig config, out string error)
@@ -2470,11 +2524,16 @@ public partial class SettingsWindow : Window
             HubRadius = hubRadius, ShowLabels = ShowLabelsCheck.IsChecked == true,
             FadeOthersOnGroupOpen = FadeOthersOnGroupOpenCheck.IsChecked == true,
             SettingsOnCloseRightClick = SettingsOnCloseRightClickCheck.IsChecked == true,
+            CloseAfterSaving = CloseAfterSavingCheck.IsChecked == true,
             Tint = TintBox.Text.Trim(), TintOpacity = TintOpacitySlider.Value,
             Accent = AccentBox.Text.Trim(), FollowCursor = FollowCursorCheck.IsChecked == true,
             HardwareAcceleration = HardwareAccelerationCheck.IsChecked == true,
             ColoredIcons = ColoredIconsCheck.IsChecked == true,
             ColoredEmoji = ColoredEmojiCheck.IsChecked == true,
+            Animation = SelectedAnimation,
+            AnimationSpeed = AnimationSpeedSlider.Value,
+            AnimationTravel = AnimationTravelSlider.Value,
+            AnimateClose = AnimateCloseCheck.IsChecked == true,
             Actions = Actions.Select(action => action.ToModel()).ToList(),
             Presets = Presets.Select(preset => new RingPreset
             {

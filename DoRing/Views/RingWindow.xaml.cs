@@ -63,7 +63,6 @@ public partial class RingWindow : Window
     /// </summary>
     private const double EdgeGap = 6;
     private const double HoverScale = 1.12;
-    private const double OpenFrom = 0.9;     // scale the ring grows from
     private const double FadedSibling = 0.8; // buttons outside the open group
     private const double SubScale = 0.76;    // child button size, relative to a parent
     private const double SubGap = 8;         // clearance between the two orbits
@@ -82,14 +81,9 @@ public partial class RingWindow : Window
     /// </summary>
     private const long HoldDrainCapMs = 700;
 
-    /// <summary>
-    /// How long the ring takes to arrive. The fade is the shorter of the two on
-    /// purpose: the ring reads as "there" the moment it is opaque, so that is the
-    /// part that has to be quick, and the last of the growth settling under it is
-    /// what stops it looking like it simply blinked into place.
-    /// </summary>
-    private static readonly TimeSpan OpenGrow = TimeSpan.FromMilliseconds(130);
-    private static readonly TimeSpan OpenFade = TimeSpan.FromMilliseconds(80);
+    // How long the ring takes to arrive and leave, and how far it travels, comes
+    // from RingAnimations: the config names one animation and it serves both
+    // directions. See RingMotion for how a variation is described.
 
     /// <summary>
     /// A frame's grace before the open animation's clock starts.
@@ -135,6 +129,26 @@ public partial class RingWindow : Window
 
     private readonly System.Windows.Threading.DispatcherTimer _trimTimer;
 
+    private ScaleTransform _rootScale = null!;
+    private RotateTransform _rootRotate = null!;
+    private TranslateTransform _rootTranslate = null!;
+
+    /// <summary>
+    /// Set while a close animation is on screen. The ring is still up but is no
+    /// longer aimable, and whatever asked it to close is waiting on the clock.
+    /// </summary>
+    private bool _closing;
+
+    /// <summary>
+    /// Bumped by every dismiss and every show, so a close animation that was
+    /// interrupted - by a second dismiss, or by the ring being summoned again
+    /// mid-exit - knows its completion is stale and leaves the window alone.
+    /// </summary>
+    private int _dismissToken;
+
+    /// <summary>What the pending dismiss owes once the ring is off-screen.</summary>
+    private Action? _afterClose;
+
     private Ellipse _hubHighlight = null!;
     private ScaleTransform _hubScale = null!;
     private FrameworkElement _pill = null!;
@@ -146,11 +160,19 @@ public partial class RingWindow : Window
         _showSettings = showSettings;
         InitializeComponent();
 
+        // The window is sized so its centre *is* the ring's centre (see Build),
+        // which is what lets a single origin serve the scale and the rotation.
         Root.RenderTransformOrigin = new Point(0.5, 0.5);
-        Root.RenderTransform = new ScaleTransform(1, 1);
+        _rootScale = new ScaleTransform(1, 1);
+        _rootRotate = new RotateTransform(0);
+        _rootTranslate = new TranslateTransform(0, 0);
+        Root.RenderTransform = new TransformGroup
+        {
+            Children = { _rootScale, _rootRotate, _rootTranslate },
+        };
 
         SourceInitialized += OnSourceInitialized;
-        Deactivated += (_, _) => Hide();
+        Deactivated += (_, _) => Dismiss();
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
         MouseRightButtonUp += OnMouseRightButtonUp;
@@ -704,9 +726,12 @@ public partial class RingWindow : Window
     /// </summary>
     public void Toggle(ModifierKeys modifiers = ModifierKeys.None, Key key = Key.None)
     {
-        if (IsVisible)
+        // A press landing during a close animation means "bring it back", not
+        // "close it twice": the ring is technically still visible, but it is on
+        // its way out and no longer aimable.
+        if (IsVisible && !_closing)
         {
-            Hide();
+            Dismiss();
             return;
         }
 
@@ -764,28 +789,55 @@ public partial class RingWindow : Window
         NativeMethods.ClearLayeredSurface(new WindowInteropHelper(this).Handle);
 
     /// <summary>
-    /// Puts the ring in its pre-open state before the first frame is composed.
-    ///
-    /// Clearing the animations first is the subtle part: an animation holds its
-    /// final value at higher precedence than the local one, so assigning
-    /// Opacity while last summon's animation is still in effect does nothing,
-    /// and the window's first frame lands at full opacity - a flash of the whole
-    /// ring, then a jump to zero, then the fade in.
+    /// Puts the ring in the chosen entrance's starting state before the first
+    /// frame is composed. See <see cref="ClearRootAnimations"/> for why the
+    /// animations have to be dropped first.
     /// </summary>
     private void PrepareForShow()
     {
-        var scale = (ScaleTransform)Root.RenderTransform;
+        // A summon arriving mid-exit abandons that exit, and its Completed will
+        // never run - so anything that dismiss still owed is settled here.
+        _dismissToken++;
+        _closing = false;
+        var owed = _afterClose;
+        _afterClose = null;
 
-        Root.BeginAnimation(OpacityProperty, null);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        var motion = RingAnimations.Open(_config);
+
+        ClearRootAnimations();
 
         // A summon that was dismissed mid-animation never reached Completed.
         EndCachedFrames();
 
         Root.Opacity = 0;
-        scale.ScaleX = OpenFrom;
-        scale.ScaleY = OpenFrom;
+        Root.IsHitTestVisible = true;
+        _rootScale.ScaleX = motion.ScaleX;
+        _rootScale.ScaleY = motion.ScaleY;
+        _rootRotate.Angle = motion.Rotation;
+        _rootTranslate.X = motion.OffsetX;
+        _rootTranslate.Y = motion.OffsetY;
+
+        if (owed is not null) Dispatcher.BeginInvoke(owed);
+    }
+
+    /// <summary>
+    /// Drops every animation on the root, putting the local property values back
+    /// in charge.
+    ///
+    /// This is the subtle part of both directions: an animation holds its final
+    /// value at higher precedence than the local one, so assigning Opacity while
+    /// the last summon's animation is still in effect does nothing, and the
+    /// window's first frame lands at full opacity - a flash of the whole ring,
+    /// then a jump to zero, then the fade in.
+    /// </summary>
+    private void ClearRootAnimations()
+    {
+        Root.BeginAnimation(OpacityProperty, null);
+        _rootScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        _rootScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        _rootRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+        _rootTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        _rootTranslate.BeginAnimation(TranslateTransform.YProperty, null);
     }
 
     /// <summary>
@@ -896,27 +948,136 @@ public partial class RingWindow : Window
 
     private void PlayOpen()
     {
-        var scale = (ScaleTransform)Root.RenderTransform;
+        var motion = RingAnimations.Open(_config);
+
+        // No animation: the ring is just there. Nothing to rasterize into a
+        // cache, and no clock to hold the first frame for either - PrepareForShow
+        // left the transform at rest and only the opacity needs undoing.
+        if (motion.IsInstant)
+        {
+            Root.Opacity = 1;
+            return;
+        }
 
         BeginCachedFrames();
 
         // To-only animations, so they start from whatever PrepareForShow left
-        // behind rather than snapping to a From value of their own. A quartic
-        // ease-out rather than a cubic one: nearly all of the travel happens in
-        // the first third of the animation, which is what makes a short open feel
-        // immediate instead of merely brief.
-        var grow = new DoubleAnimation(1.0, OpenGrow)
-        {
-            BeginTime = OpenLead,
-            EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut },
-        };
-        grow.Completed += (_, _) => EndCachedFrames();
+        // behind rather than snapping to a From value of their own.
+        var settle = Leg(1.0, motion, OpenLead);
 
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+        // The transform is what the cache is for, and it always outlasts the
+        // fade, so it is the leg that hands rendering back. Every leg shares a
+        // duration, so which one carries it doesn't matter.
+        settle.Completed += (_, _) => EndCachedFrames();
+
+        _rootScale.BeginAnimation(ScaleTransform.ScaleXProperty, settle);
+        _rootScale.BeginAnimation(ScaleTransform.ScaleYProperty, Leg(1.0, motion, OpenLead));
+
+        if (motion.Rotation != 0)
+            _rootRotate.BeginAnimation(RotateTransform.AngleProperty, Leg(0.0, motion, OpenLead));
+
+        if (motion.OffsetX != 0)
+            _rootTranslate.BeginAnimation(TranslateTransform.XProperty, Leg(0.0, motion, OpenLead));
+
+        if (motion.OffsetY != 0)
+            _rootTranslate.BeginAnimation(TranslateTransform.YProperty, Leg(0.0, motion, OpenLead));
 
         Root.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(1.0, OpenFade) { BeginTime = OpenLead });
+            new DoubleAnimation(1.0, motion.FadeWithin) { BeginTime = OpenLead });
+    }
+
+    /// <summary>
+    /// One leg of a motion, run to <paramref name="to"/> on its clock.
+    ///
+    /// <paramref name="beginAt"/> defaults to zero rather than being left null:
+    /// a null BeginTime in WPF does not mean "start now", it means the timeline
+    /// never starts at all.
+    /// </summary>
+    private static DoubleAnimation Leg(double to, RingMotion motion, TimeSpan? beginAt = null) =>
+        new(to, motion.Duration)
+        {
+            BeginTime = beginAt ?? TimeSpan.Zero,
+            EasingFunction = motion.Easing,
+        };
+
+    /// <summary>
+    /// Takes the ring away, playing the configured exit first.
+    ///
+    /// <paramref name="then"/> runs once the ring is off-screen, which is not
+    /// negotiable for the action paths: a keystroke or a paste has to land in the
+    /// window that was focused before the ring, and the ring is the focused
+    /// window while it is still up. An exit therefore costs a chosen action the
+    /// length of the animation, which is the whole reason Instant is the default.
+    /// </summary>
+    private void Dismiss(Action? then = null)
+    {
+        if (!IsVisible)
+        {
+            if (then is not null) Dispatcher.BeginInvoke(then);
+            return;
+        }
+
+        var motion = RingAnimations.Close(_config);
+
+        // Already on the way out: a second dismiss is a demand to be gone, not a
+        // request to start the exit again from the top.
+        if (motion.IsInstant || _closing)
+        {
+            _dismissToken++;
+            var owed = _afterClose;
+            _afterClose = null;
+            _closing = false;
+
+            Hide();
+
+            if (owed is not null) Dispatcher.BeginInvoke(owed);
+            if (then is not null) Dispatcher.BeginInvoke(then);
+            return;
+        }
+
+        var token = ++_dismissToken;
+        _closing = true;
+        _afterClose = then;
+        _holdTimer.Stop();
+
+        // Nothing here is aimable any more, and a click landing on a ring that
+        // is halfway gone would run whatever was still under the pointer. The
+        // hover stays lit on purpose: it is a record of what was picked.
+        Root.IsHitTestVisible = false;
+
+        BeginCachedFrames();
+
+        var leave = Leg(motion.ScaleX, motion);
+        leave.Completed += (_, _) =>
+        {
+            EndCachedFrames();
+
+            // Superseded - dismissed again, or summoned back - and whoever
+            // superseded us owns the window and the pending action now.
+            if (token != _dismissToken) return;
+
+            var owed = _afterClose;
+            _afterClose = null;
+            _closing = false;
+
+            Hide();
+
+            if (owed is not null) Dispatcher.BeginInvoke(owed);
+        };
+
+        _rootScale.BeginAnimation(ScaleTransform.ScaleXProperty, leave);
+        _rootScale.BeginAnimation(ScaleTransform.ScaleYProperty, Leg(motion.ScaleY, motion));
+
+        if (motion.Rotation != 0)
+            _rootRotate.BeginAnimation(RotateTransform.AngleProperty, Leg(motion.Rotation, motion));
+
+        if (motion.OffsetX != 0)
+            _rootTranslate.BeginAnimation(TranslateTransform.XProperty, Leg(motion.OffsetX, motion));
+
+        if (motion.OffsetY != 0)
+            _rootTranslate.BeginAnimation(TranslateTransform.YProperty, Leg(motion.OffsetY, motion));
+
+        Root.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, motion.FadeWithin));
     }
 
     /// <summary>
@@ -1113,8 +1274,12 @@ public partial class RingWindow : Window
         SetHover(index, None, _buttons[index].Action.IsGroup ? index : None);
     }
 
-    private void OnMouseMove(object sender, MouseEventArgs e) =>
+    private void OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_closing) return;
+
         UpdateHover(e.GetPosition(Surface));
+    }
 
     // ---- hover state ----------------------------------------------------
 
@@ -1227,22 +1392,27 @@ public partial class RingWindow : Window
 
     // ---- invoking -------------------------------------------------------
 
-    private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+    private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_closing) return;
+
         InvokeHovered(closeOnMiss: false);
+    }
 
     private void OnMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var openSettings = _hovered == HubIndex && _config.SettingsOnCloseRightClick;
-        Hide();
+        if (_closing) return;
 
-        if (openSettings)
-            _showSettings();
+        var openSettings = _hovered == HubIndex && _config.SettingsOnCloseRightClick;
+        Dismiss(openSettings ? _showSettings : null);
 
         e.Handled = true;
     }
 
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        if (_closing) return;
+
         RingAction? action = null;
         if (_hoveredChild != None && _groups.TryGetValue(_openGroup, out var group))
             action = group.Children[_hoveredChild].Action;
@@ -1294,20 +1464,22 @@ public partial class RingWindow : Window
             // and dismissing the ring on a click here would be the opposite of
             // helpful.
             if (action.IsClickable) Invoke(action);
-            else if (closeOnMiss) Hide();
+            else if (closeOnMiss) Dismiss();
             return;
         }
 
-        Hide(); // the hub and the empty space both mean cancel
+        Dismiss(); // the hub and the empty space both mean cancel
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
+        if (_closing) return;
+
         if (e.Key == Key.Escape)
         {
             // Back out of an expanded group first, then close.
             if (_openGroup != None) ResetHover();
-            else Hide();
+            else Dismiss();
 
             e.Handled = true;
             return;
@@ -1336,11 +1508,9 @@ public partial class RingWindow : Window
 
     private void Invoke(RingAction action)
     {
-        Hide();
-
         if (action.Kind == ActionKind.Command && action.Target == "DoRingSettings")
         {
-            Dispatcher.BeginInvoke(_showSettings);
+            Dismiss(_showSettings);
             return;
         }
 
@@ -1348,6 +1518,6 @@ public partial class RingWindow : Window
 
         // Run once the ring is off-screen, so restoring focus to the previous
         // window isn't racing our own teardown.
-        Dispatcher.BeginInvoke(() => ActionRunner.Run(action, restoreTo));
+        Dismiss(() => ActionRunner.Run(action, restoreTo));
     }
 }
