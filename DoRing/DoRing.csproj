@@ -13,6 +13,10 @@
     <AssemblyName>DoRing</AssemblyName>
     <RootNamespace>DoRing</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
     <!-- WFO0003 tells WinForms apps to set DPI mode in code instead of the
          manifest. WPF needs it in the manifest, and WinForms is only here for
          the tray icon, so the manifest wins. -->

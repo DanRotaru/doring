@@ -1126,7 +1126,7 @@
                             <TextBlock Text="&#xE774;" Foreground="{StaticResource MutedBrush}"
                                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15" />
                         </Button>
-                        <TextBlock Text="v0.0.1" Foreground="{StaticResource MutedBrush}"
+                        <TextBlock Text="v1.0.0" Foreground="{StaticResource MutedBrush}"
                                    FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
                 </StackPanel>
