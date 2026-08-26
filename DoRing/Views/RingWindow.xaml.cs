@@ -430,7 +430,8 @@ public partial class RingWindow : Window
             Text = action.Glyph,
             FontFamily = IconFonts.For(action.IconKind),
             FontSize = radius * 0.82,
-            Foreground = IconFonts.IconBrush(action.IconKind, action.Glyph, action.IconColor, _config.ColoredIcons)
+            Foreground = IconFonts.IconBrush(action.IconKind, action.Glyph, action.IconColor,
+                             action.ColoredIcon ?? _config.ColoredIcons)
                          ?? new SolidColorBrush(Color.FromArgb(0xDE, 0xFF, 0xFF, 0xFF)),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,

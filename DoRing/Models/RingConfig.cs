@@ -157,6 +157,13 @@ public sealed class RingAction
     /// <summary>Optional hex color for the glyph, e.g. "#FF5C7CFA". Overrides the brand color.</summary>
     public string? IconColor { get; set; }
 
+    /// <summary>
+    /// Whether this action's branded icon is drawn in its brand color. Null
+    /// follows <see cref="RingConfig.ColoredIcons"/>, so an action only stops
+    /// tracking the global default once it is toggled on its own.
+    /// </summary>
+    public bool? ColoredIcon { get; set; }
+
     public ActionKind Kind { get; set; } = ActionKind.Launch;
 
     /// <summary>Path, URL, or key combo ("Ctrl+Shift+S") depending on <see cref="Kind"/>.</summary>
@@ -503,6 +510,7 @@ public sealed class RingConfig
         IconKind = action.IconKind,
         IconPath = action.IconPath,
         IconColor = action.IconColor,
+        ColoredIcon = action.ColoredIcon,
         Kind = action.Kind,
         Target = action.Target,
         Arguments = action.Arguments,

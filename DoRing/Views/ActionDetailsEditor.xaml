@@ -108,9 +108,9 @@
                     </StackPanel>
                 </Border>
                 <StackPanel Visibility="{Binding UseSimpleIcon, Converter={StaticResource BoolToVisibility}}">
-                    <CheckBox Margin="2,9,0,0" Content="Colored icons"
-                              IsChecked="{Binding Source={x:Static services:IconPreferences.Instance}, Path=Colored, Mode=TwoWay}"
-                              ToolTip="Draw branded icons in their brand color" />
+                    <CheckBox Margin="2,9,0,0" Content="Colored icon"
+                              IsChecked="{Binding ColoredIcon, Mode=TwoWay}"
+                              ToolTip="Draw this action's branded icon in its brand color" />
                     <TextBlock Margin="2,6,0,0" TextWrapping="Wrap" FontSize="11"
                                Foreground="{StaticResource EditorMutedBrush}">
                         <Run Text="Brand icons come from " /><Hyperlink NavigateUri="https://simpleicons.org/"
@@ -231,8 +231,17 @@
                            Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap" />
             </StackPanel>
 
-            <TextBlock Text="Custom accent" FontWeight="SemiBold" />
-            <TextBox Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,0" />
+            <TextBlock Text="Custom accent color" FontWeight="SemiBold" />
+            <Grid Margin="0,7,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Button Padding="4" Margin="0,0,6,0" VerticalAlignment="Stretch"
+                        ToolTip="Choose accent color" Click="AccentColor_Click">
+                    <Border Width="20" Height="20" CornerRadius="3" BorderBrush="#55FFFFFF" BorderThickness="1"
+                            Background="{Binding Text, ElementName=AccentColorBox}" />
+                </Button>
+                <TextBox x:Name="AccentColorBox" Grid.Column="1" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                         Text="{Binding Accent, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
             <TextBlock Text="Optional hex color. Leave blank to use the global accent."
                        Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,4,0,14" TextWrapping="Wrap" />
 

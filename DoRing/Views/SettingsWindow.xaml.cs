@@ -103,6 +103,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     private ActionIconKind _iconKind;
     private string _iconPath;
     private string _iconColor;
+    private bool? _coloredIcon;
     private ActionKind _kind;
     private string _target;
     private string _arguments;
@@ -119,6 +120,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             IconKind = action.IconKind,
             IconPath = action.IconPath ?? "",
             IconColor = action.IconColor,
+            ColoredIcon = action.ColoredIcon,
             Kind = action.Kind,
             Target = action.Target,
             Arguments = action.Arguments,
@@ -131,6 +133,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         _iconKind = action.IconKind;
         _iconPath = action.IconPath ?? "";
         _iconColor = action.IconColor ?? "";
+        _coloredIcon = action.ColoredIcon;
         _kind = action.Kind;
         _target = action.Target;
         _arguments = action.Arguments;
@@ -170,7 +173,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
 
     /// <summary>The action's own icon color, or null when it uses the default.</summary>
     public Brush? BrandBrush =>
-        IconFonts.IconBrush(IconKind, Glyph, IconColor, IconPreferences.Instance.Colored);
+        IconFonts.IconBrush(IconKind, Glyph, IconColor, ColoredIcon);
 
     /// <summary>The icon color to draw with, falling back to the normal foreground.</summary>
     public Brush GlyphBrush => BrandBrush ?? PlainGlyphBrush;
@@ -188,6 +191,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     public void RefreshIconVisuals()
     {
         RefreshDisplayIcon();
+        Changed(nameof(ColoredIcon));
         Changed(nameof(BrandBrush));
         Changed(nameof(GlyphBrush));
         Changed(nameof(DisplayIcon));
@@ -253,6 +257,28 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
             Changed(nameof(GlyphBrush));
         }
     }
+    /// <summary>
+    /// Whether this action's branded icon uses its brand color. Until it is
+    /// toggled the action follows the global preference; toggling it pins the
+    /// choice to this action alone, leaving the rest of the ring as it was.
+    /// </summary>
+    public bool ColoredIcon
+    {
+        get => _coloredIcon ?? IconPreferences.Instance.Colored;
+        set
+        {
+            if (_coloredIcon == value) return;
+            _coloredIcon = value;
+            Changed();
+            Changed(nameof(BrandBrush));
+            Changed(nameof(GlyphBrush));
+            Changed(nameof(IsModified));
+        }
+    }
+
+    /// <summary>The stored choice, with null meaning "follow the global default".</summary>
+    public bool? ColoredIconOverride => _coloredIcon;
+
     public ActionKind Kind { get => _kind; set { _kind = value; Changed(); NotifyKindProperties(); } }
     public string KindDisplay => Kind switch
     {
@@ -303,6 +329,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         IconKind != _original.IconKind ||
         IconPath != (_original.IconPath ?? "") ||
         IconColor != (_original.IconColor ?? "") ||
+        _coloredIcon != _original.ColoredIcon ||
         Kind != _original.Kind ||
         Target != _original.Target ||
         Arguments != _original.Arguments ||
@@ -316,6 +343,10 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         IconKind = _original.IconKind;
         IconPath = _original.IconPath ?? "";
         IconColor = _original.IconColor ?? "";
+        _coloredIcon = _original.ColoredIcon;
+        Changed(nameof(ColoredIcon));
+        Changed(nameof(BrandBrush));
+        Changed(nameof(GlyphBrush));
         Kind = _original.Kind;
         Target = _original.Target;
         Arguments = _original.Arguments;
@@ -329,6 +360,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         Label = Label.Trim(), Glyph = Glyph, IconKind = IconKind,
         IconPath = IconKind == ActionIconKind.AppIcon && string.IsNullOrWhiteSpace(IconPath) ? Target.Trim() : IconPath.Trim(),
         IconColor = string.IsNullOrWhiteSpace(IconColor) ? null : IconColor.Trim(),
+        ColoredIcon = _coloredIcon,
         Kind = Kind, Target = Target.Trim(),
         Arguments = Arguments.Trim(), ScrollBehavior = ScrollBehavior,
         Accent = string.IsNullOrWhiteSpace(Accent) ? null : Accent.Trim(),
@@ -441,18 +473,35 @@ internal sealed partial class GlyphCatalog
         _all = new Lazy<IReadOnlyList<GlyphOption>>(load);
     }
 
-    static GlyphCatalog() =>
-        IconPreferences.ColoredChanged += (_, _) =>
-        {
-            foreach (var option in SimpleIcons.All) option.NotifyAppearance();
-            foreach (var option in Emoji.All) option.NotifyAppearance();
-        };
+    static GlyphCatalog() => IconPreferences.ColoredChanged += (_, _) => Repaint();
+
+    private static bool _colored = IconPreferences.Instance.Colored;
 
     public ActionIconKind Kind { get; }
     public IReadOnlyList<GlyphOption> All => _all.Value;
 
-    /// <summary>Whether pickers draw Simple Icons in their brand color.</summary>
-    public static bool Colored => IconPreferences.Instance.Colored;
+    /// <summary>
+    /// Whether pickers draw Simple Icons in their brand color. Brand color is a
+    /// per-action choice, so the editor points this at the action being edited
+    /// and the grid previews that action rather than the ring as a whole.
+    /// </summary>
+    public static bool Colored
+    {
+        get => _colored;
+        set
+        {
+            if (_colored == value) return;
+            _colored = value;
+            Repaint();
+        }
+    }
+
+    /// <summary>Re-draws every option whose appearance depends on a preference.</summary>
+    private static void Repaint()
+    {
+        foreach (var option in SimpleIcons.All) option.NotifyAppearance();
+        foreach (var option in Emoji.All) option.NotifyAppearance();
+    }
 
     public static GlyphCatalog For(ActionIconKind kind) => kind switch
     {
@@ -1340,6 +1389,7 @@ public partial class SettingsWindow : Window
         current.IconKind == original.IconKind &&
         current.IconPath == (original.IconPath ?? "") &&
         current.IconColor == (original.IconColor ?? "") &&
+        current.ColoredIconOverride == original.ColoredIcon &&
         current.Kind == original.Kind &&
         current.Target == original.Target &&
         current.Arguments == original.Arguments &&
@@ -2020,7 +2070,7 @@ public partial class SettingsWindow : Window
             Text = model.Glyph, FontFamily = IconFonts.For(model.IconKind),
             FontSize = radius * 0.82,
             Foreground = IconFonts.IconBrush(model.IconKind, model.Glyph, model.IconColor,
-                             IconPreferences.Instance.Colored) ?? Brushes.White,
+                             model.ColoredIcon ?? IconPreferences.Instance.Colored) ?? Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         _insertPreview = ghost;
@@ -2128,7 +2178,7 @@ public partial class SettingsWindow : Window
             Text = model.Glyph, FontFamily = IconFonts.For(model.IconKind),
             FontSize = radius * 0.82,
             Foreground = IconFonts.IconBrush(model.IconKind, model.Glyph, model.IconColor,
-                             IconPreferences.Instance.Colored) ?? Brushes.White,
+                             model.ColoredIcon ?? IconPreferences.Instance.Colored) ?? Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         });
         return ghost;

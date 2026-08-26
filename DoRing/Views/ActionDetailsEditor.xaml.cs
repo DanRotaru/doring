@@ -49,6 +49,7 @@ public partial class ActionDetailsEditor : UserControl
         if (Action.IconKind != ActionIconKind.AppIcon && !string.IsNullOrEmpty(Action.Glyph))
             _chosenPerSource[Action.IconKind] = Action.Glyph;
         GlyphSearch.Clear();
+        GlyphCatalog.Colored = Action.ColoredIcon;
         GlyphCatalog.Select(Action.IconKind, Action.Glyph);
         RefreshGlyphs(scrollToSelection: true);
         UpdateTargetHelp();
@@ -66,7 +67,15 @@ public partial class ActionDetailsEditor : UserControl
 
     private void Action_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ActionItemViewModel.IconKind) || Action is null) return;
+        if (Action is null) return;
+        // Brand color is per action, so the picker grid previews the action
+        // being edited instead of whatever the ring uses by default.
+        if (e.PropertyName == nameof(ActionItemViewModel.ColoredIcon))
+        {
+            GlyphCatalog.Colored = Action.ColoredIcon;
+            return;
+        }
+        if (e.PropertyName != nameof(ActionItemViewModel.IconKind)) return;
         // Custom Icons has no glyph list, so it keeps whatever glyph the action
         // carried - switching back to a font source should not have lost it.
         if (Action.IconKind == ActionIconKind.AppIcon) return;
@@ -122,6 +131,9 @@ public partial class ActionDetailsEditor : UserControl
 
     private void IconColor_Click(object sender, RoutedEventArgs e) =>
         ColorPickerRequested?.Invoke(this, new ColorPickerRequest((FrameworkElement)sender, IconColorBox));
+
+    private void AccentColor_Click(object sender, RoutedEventArgs e) =>
+        ColorPickerRequested?.Invoke(this, new ColorPickerRequest((FrameworkElement)sender, AccentColorBox));
 
     private void SimpleIconsLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
     {
