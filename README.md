@@ -113,6 +113,7 @@ binary so the whole thing stays portable).
 | `Launch` | An exe, folder, or document path. `Arguments` is passed along. Environment variables are expanded. |
 | `Url` | Opened in the default browser. |
 | `Keys` | A combo like `Ctrl+Shift+S`, injected into whichever window had focus before the ring opened. |
+| `ToggleWindow` | A process name like `WindowsTerminal.exe`, or a full path to the exe. Minimises the window if it was already in front, brings it forward if it is open, launches `Target` (with `Arguments`) if it isn't running. |
 
 `Glyph` is a single character — a [Segoe Fluent Icons](https://learn.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font)
 codepoint or an emoji. `Accent` on an individual action overrides the global one.

@@ -31,6 +31,8 @@ public sealed record ActionPreset(RingAction Action)
             ? "Run any keyboard shortcut"
         : Action.Label == "Paste Text"
             ? "Paste any saved text instantly"
+        : Action.Kind == ActionKind.ToggleWindow
+            ? "Show, hide, or start an app"
         : Action.Target == "DoRingSettings"
             ? "Open DoRing settings"
         : Action.Target == "WindowsSettings"
@@ -261,6 +263,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
         ActionKind.Command => "Windows command",
         ActionKind.PasteText => "Paste text", ActionKind.MousePosition => "Move mouse cursor",
         ActionKind.DateTime => "Date and time", ActionKind.Clipboard => "Clipboard",
+        ActionKind.ToggleWindow => "Trigger window visibility",
         _ => "Group",
     };
     public bool IsLaunch => Kind == ActionKind.Launch;
@@ -269,6 +272,7 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     public bool IsPasteText => Kind == ActionKind.PasteText;
     public bool IsMousePosition => Kind == ActionKind.MousePosition;
     public bool IsDateTime => Kind == ActionKind.DateTime;
+    public bool IsToggleWindow => Kind == ActionKind.ToggleWindow;
     public bool HasNoCustomInput => Kind is ActionKind.Command or ActionKind.Clipboard or ActionKind.Group;
     public string Target
     {
@@ -351,7 +355,8 @@ public sealed class ActionItemViewModel : INotifyPropertyChanged
     {
         Changed(nameof(KindDisplay)); Changed(nameof(IsLaunch)); Changed(nameof(IsUrl));
         Changed(nameof(IsKeys)); Changed(nameof(IsPasteText)); Changed(nameof(IsMousePosition));
-        Changed(nameof(IsDateTime)); Changed(nameof(HasNoCustomInput));
+        Changed(nameof(IsDateTime)); Changed(nameof(IsToggleWindow));
+        Changed(nameof(HasNoCustomInput));
     }
 
     private void Changed([CallerMemberName] string? name = null)
@@ -1179,6 +1184,7 @@ public partial class SettingsWindow : Window
         [
             Preset("Open App/File/Folder", "\uF0E2", ActionKind.Launch, ""),
             Preset("Open Web Page (URL)", "", ActionKind.Url, "https://"),
+            Preset("Trigger Window Visibility", "", ActionKind.ToggleWindow, ""),
             Preset("Windows Explorer", "", ActionKind.Launch, "explorer.exe"),
             Preset("Windows Terminal", "", ActionKind.Launch, "wt.exe"),
             Preset("Task Manager", "", ActionKind.Launch, "taskmgr.exe"),

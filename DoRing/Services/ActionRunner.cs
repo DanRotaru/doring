@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Windows;
 using System.Windows.Input;
@@ -66,6 +67,10 @@ public static class ActionRunner
                 case ActionKind.Clipboard:
                     RestoreFocus(restoreTo);
                     RunClipboard(action.Target);
+                    break;
+
+                case ActionKind.ToggleWindow:
+                    ToggleWindow(action.Target, action.Arguments, restoreTo);
                     break;
             }
         }
@@ -237,6 +242,143 @@ public static class ActionRunner
             _ => value,
         };
         Clipboard.SetText(value);
+    }
+
+    /// <summary>
+    /// Show a program if it is open, hide it if it is already in front, start it
+    /// if it isn't running - the whole point being that one button both summons
+    /// and dismisses the same window.
+    /// </summary>
+    /// <param name="target">
+    /// A process name ("WindowsTerminal.exe"), or a full path to the executable;
+    /// the file name is what the running processes are matched on either way.
+    /// </param>
+    private static void ToggleWindow(string target, string arguments, IntPtr restoreTo)
+    {
+        if (string.IsNullOrWhiteSpace(target)) return;
+
+        var expanded = Environment.ExpandEnvironmentVariables(
+            ExplorerContext.Expand(target, restoreTo)).Trim().Trim('"');
+        var window = FindProcessWindow(ProcessNameOf(expanded));
+
+        if (window == IntPtr.Zero)
+        {
+            Start(target, arguments, restoreTo);
+            return;
+        }
+
+        // restoreTo is the window that had focus before the ring opened, which
+        // is the only reliable read of "was this app in front?" - by the time
+        // the action runs, the foreground window is the ring or already gone.
+        if (window == restoreTo || window == RootOf(restoreTo))
+        {
+            NativeMethods.ShowWindow(window, NativeMethods.SW_MINIMIZE);
+            return;
+        }
+
+        if (NativeMethods.IsIconic(window)) NativeMethods.ShowWindow(window, NativeMethods.SW_RESTORE);
+        Activate(window);
+    }
+
+    /// <summary>The file name without its extension, which is what Process matches on.</summary>
+    private static string ProcessNameOf(string target)
+    {
+        var name = Path.GetFileName(target);
+        if (string.IsNullOrEmpty(name)) name = target;
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? name[..^4]
+            : name;
+    }
+
+    /// <summary>
+    /// The best window to toggle for a process name: its main window if it
+    /// reports one, otherwise the first visible top-level window it owns - some
+    /// apps (Explorer above all) leave MainWindowHandle empty.
+    /// </summary>
+    private static IntPtr FindProcessWindow(string processName)
+    {
+        if (string.IsNullOrEmpty(processName)) return IntPtr.Zero;
+
+        Process[] processes;
+        try { processes = Process.GetProcessesByName(processName); }
+        catch (Exception) { return IntPtr.Zero; }
+
+        var ids = new HashSet<uint>();
+        try
+        {
+            foreach (var process in processes)
+            {
+                try
+                {
+                    if (process.MainWindowHandle != IntPtr.Zero &&
+                        NativeMethods.IsWindowVisible(process.MainWindowHandle))
+                        return process.MainWindowHandle;
+                    ids.Add((uint)process.Id);
+                }
+                catch (Exception)
+                {
+                    // A process that exited between the enumeration and the read.
+                }
+            }
+        }
+        finally
+        {
+            foreach (var process in processes) process.Dispose();
+        }
+
+        if (ids.Count == 0) return IntPtr.Zero;
+
+        var found = IntPtr.Zero;
+        NativeMethods.EnumWindows((handle, _) =>
+        {
+            if (!NativeMethods.IsWindowVisible(handle)) return true;
+            if (NativeMethods.GetWindow(handle, NativeMethods.GW_OWNER) != IntPtr.Zero) return true;
+            if ((NativeMethods.GetWindowLong(handle, NativeMethods.GWL_EXSTYLE) &
+                 NativeMethods.WS_EX_TOOLWINDOW) != 0) return true;
+            NativeMethods.GetWindowThreadProcessId(handle, out var owner);
+            if (!ids.Contains(owner)) return true;
+            found = handle;
+            return false;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    /// <summary>The owner-less window a handle belongs to, so a dialog counts as its app.</summary>
+    private static IntPtr RootOf(IntPtr window)
+    {
+        while (window != IntPtr.Zero)
+        {
+            var owner = NativeMethods.GetWindow(window, NativeMethods.GW_OWNER);
+            if (owner == IntPtr.Zero) return window;
+            window = owner;
+        }
+        return window;
+    }
+
+    /// <summary>
+    /// Raises another process's window. SetForegroundWindow alone is refused
+    /// unless we own the foreground, so we attach to the current foreground
+    /// thread first and fall back to raising the window without focus.
+    /// </summary>
+    private static void Activate(IntPtr window)
+    {
+        var foreground = NativeMethods.GetForegroundWindow();
+        var self = NativeMethods.GetCurrentThreadId();
+        var owner = foreground == IntPtr.Zero
+            ? 0
+            : NativeMethods.GetWindowThreadProcessId(foreground, out _);
+
+        var attached = owner != 0 && owner != self &&
+                       NativeMethods.AttachThreadInput(self, owner, true);
+        try
+        {
+            if (!NativeMethods.SetForegroundWindow(window))
+                NativeMethods.BringWindowToTop(window);
+        }
+        finally
+        {
+            if (attached) NativeMethods.AttachThreadInput(self, owner, false);
+        }
     }
 
     private static void Start(string target, string arguments, IntPtr explorerHint = default)

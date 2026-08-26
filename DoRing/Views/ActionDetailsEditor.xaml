@@ -177,6 +177,25 @@
                            Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap" />
             </StackPanel>
 
+            <StackPanel Visibility="{Binding IsToggleWindow, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Process name or program path" FontWeight="SemiBold" />
+                <Grid Margin="0,7,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBox Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Height="34" VerticalContentAlignment="Center" />
+                    <Button Grid.Column="1" MinWidth="96" Height="34" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" Click="BrowseTarget_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8E5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,7,0"/><TextBlock Text="Browse…"/></StackPanel>
+                    </Button>
+                </Grid>
+                <TextBlock Text="Hides the window when it is already in front, brings it forward when it is open behind something, and starts the program when it isn’t running."
+                           Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,4,0,12" TextWrapping="Wrap" />
+                <TextBlock Text="Example: chrome.exe, or a full path such as C:\Apps\App.exe. Matching is by executable name, so a path also finds an instance started elsewhere."
+                           Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,0,0,12" TextWrapping="Wrap" />
+                <TextBlock Text="Arguments" FontWeight="SemiBold" />
+                <TextBox Text="{Binding Arguments, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,4" />
+                <TextBlock Text="Used only when the program has to be started."
+                           Foreground="{StaticResource EditorMutedBrush}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap" />
+            </StackPanel>
+
             <StackPanel Visibility="{Binding IsUrl, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="Web address" FontWeight="SemiBold" />
                 <TextBox Text="{Binding Target, UpdateSourceTrigger=PropertyChanged}" Margin="0,7,0,4" />

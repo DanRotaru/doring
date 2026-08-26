@@ -27,6 +27,12 @@ public enum ActionKind
     DateTime,
     /// <summary>Read or transform the Windows clipboard.</summary>
     Clipboard,
+    /// <summary>
+    /// Toggle a program's window: minimise it when it is already in front,
+    /// bring it forward when it is open behind something, launch it when it
+    /// isn't running at all.
+    /// </summary>
+    ToggleWindow,
 }
 
 [JsonConverter(typeof(ScrollBehaviorJsonConverter))]

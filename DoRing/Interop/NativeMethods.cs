@@ -260,6 +260,7 @@ internal static class NativeMethods
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOZORDER = 0x0004;
     public const int SW_RESTORE = 9;
+    public const int SW_MINIMIZE = 6;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetWindowPos(
@@ -274,6 +275,31 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+
+    public const uint GW_OWNER = 4;
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    /// <summary>
+    /// Needed to hand the foreground to a window owned by another process:
+    /// Windows only lets the thread that owns the current foreground window do
+    /// that, so we borrow its input queue for the length of the call.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint attachTo, uint attachFrom, bool attach);
 
     // ---- working set ---------------------------------------------------
 
