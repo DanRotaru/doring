@@ -964,28 +964,39 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <Button DataContext="{Binding DoRingSettingsPreset}"
-                                            PreviewMouseLeftButtonDown="ActionDragSource_PreviewMouseLeftButtonDown"
-                                            PreviewMouseMove="ActionDragSource_PreviewMouseMove"
-                                            Click="PresetAction_Click"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                            Padding="9,7" Margin="0,0,0,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBlock Text="&#xE76F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                       FontSize="12" Opacity="0.38"
-                                                       HorizontalAlignment="Left" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding IconText}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI"
-                                                       FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="2" Margin="8,0">
-                                                <TextBlock Text="{Binding Action.Label}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
-                                                           FontSize="10" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="3" Text="&#xE72A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                                       Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </Button>
+                                    <ItemsControl ItemsSource="{Binding LooseActionPresets}">
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button DataContext="{Binding}"
+                                                        PreviewMouseLeftButtonDown="ActionDragSource_PreviewMouseLeftButtonDown"
+                                                        PreviewMouseMove="ActionDragSource_PreviewMouseMove"
+                                                        Click="PresetAction_Click"
+                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                        Padding="9,7" Margin="0,0,0,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="&#xE76F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                   FontSize="12" Opacity="0.38"
+                                                                   HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding IconText}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI"
+                                                                   FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        <StackPanel Grid.Column="2" Margin="8,0">
+                                                            <TextBlock Text="{Binding Action.Label}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
+                                                                       FontSize="10" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="3" Text="&#xE72A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                   Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     </StackPanel>
                                 </ScrollViewer>
 

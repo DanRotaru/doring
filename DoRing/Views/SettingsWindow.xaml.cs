@@ -33,6 +33,8 @@ public sealed record ActionPreset(RingAction Action)
             ? "Paste any saved text instantly"
         : Action.Kind == ActionKind.ToggleWindow
             ? "Show, hide, or start an app"
+        : Action.Kind == ActionKind.Group
+            ? "Holds other actions"
         : Action.Target == "DoRingSettings"
             ? "Open DoRing settings"
         : Action.Target == "WindowsSettings"
@@ -730,7 +732,9 @@ public partial class SettingsWindow : Window
             : null;
         _initialActivePresetId = _activePresetId;
         ActionCategories = CreateActionCategories();
+        GroupPreset = NewGroupPreset();
         DoRingSettingsPreset = SettingsPreset();
+        LooseActionPresets = [GroupPreset, DoRingSettingsPreset];
         Actions.CollectionChanged += Actions_CollectionChanged;
         Presets.CollectionChanged += (_, _) => UpdatePresetsUi();
         foreach (var action in Actions) WatchAction(action);
@@ -746,7 +750,14 @@ public partial class SettingsWindow : Window
     public ObservableCollection<RingPresetViewModel> Presets { get; }
     public IReadOnlyList<ActionPresetCategory> ActionCategories { get; }
     public IReadOnlyList<RingAnimationOption> Animations => RingAnimations.Options;
+    public ActionPreset GroupPreset { get; }
     public ActionPreset DoRingSettingsPreset { get; }
+
+    /// <summary>
+    /// The items that sit under the categories rather than inside one: a bare
+    /// group to fill yourself, and DoRing's own settings.
+    /// </summary>
+    public IReadOnlyList<ActionPreset> LooseActionPresets { get; }
     private void LoadGeneral(RingConfig config)
     {
         HotKeyBox.Text = config.HotKey;
@@ -1319,6 +1330,18 @@ public partial class SettingsWindow : Window
     private static ActionPreset Preset(string label, string glyph, ActionKind kind, string target,
         string arguments = "", ScrollBehavior scroll = ScrollBehavior.None) =>
         new(new RingAction { Label = label, Glyph = glyph, Kind = kind, Target = target, Arguments = arguments, ScrollBehavior = scroll });
+
+    /// <summary>
+    /// A container for other actions. It arrives holding one child, because a
+    /// childless group is inert on the ring - nothing to fan out, nothing to
+    /// click - so the first child is a better starting point than an empty one.
+    /// </summary>
+    private static ActionPreset NewGroupPreset()
+    {
+        var group = new RingAction { Label = "Group", Glyph = "", Kind = ActionKind.Group };
+        group.Items.Add(new RingAction { Label = "New action", Glyph = "", Kind = ActionKind.Launch });
+        return new ActionPreset(group);
+    }
 
     private static ActionPreset SettingsPreset() =>
         Preset("DoRing Settings", "\uE713", ActionKind.Command, "DoRingSettings");
