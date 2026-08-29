@@ -17,6 +17,11 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <InformationalVersion>1.0.0</InformationalVersion>
+    <Authors>DanRotaru</Authors>
+    <Company>DanRotaru</Company>
+    <Product>DoRing</Product>
+    <Copyright>Copyright (c) DanRotaru</Copyright>
+    <PackageProjectUrl>https://dan13.me/</PackageProjectUrl>
     <!-- WFO0003 tells WinForms apps to set DPI mode in code instead of the
          manifest. WPF needs it in the manifest, and WinForms is only here for
          the tray icon, so the manifest wins. -->

@@ -113,7 +113,7 @@ public partial class ActionDetailsEditor : UserControl
         // The selected glyph wins; scrollToTop is the fallback for a list where
         // nothing is selected, so a freshly opened source starts at its top.
         var target = scrollToSelection
-            ? rows.FirstOrDefault(row => row.Any(option => option.Glyph == Action.Glyph))
+            ? rows.FirstOrDefault(row => row.Any(option => option.Matches(Action.Glyph)))
             : null;
         target ??= scrollToTop ? rows[0] : null;
         if (target is not null)

@@ -409,6 +409,17 @@ internal sealed class GlyphOption : INotifyPropertyChanged
     public required string Name { get; init; }
     public required string SearchText { get; init; }
 
+    /// <summary>
+    /// Other characters that draw this very same glyph. Segoe Fluent Icons keeps
+    /// the old Segoe MDL2 Assets codepoints as aliases, so an action saved before
+    /// they were folded together still names one of them.
+    /// </summary>
+    public IReadOnlyCollection<string> Aliases { get; init; } = Array.Empty<string>();
+
+    /// <summary>Whether <paramref name="glyph"/> resolves to this icon, alias or not.</summary>
+    public bool Matches(string? glyph) =>
+        glyph == Glyph || (glyph is not null && Aliases.Contains(glyph));
+
     /// <summary>The font the glyph has to be drawn with in the picker.</summary>
     public required FontFamily Font { get; init; }
 
@@ -522,7 +533,7 @@ internal sealed partial class GlyphCatalog
 
     /// <summary>Whether this source can draw <paramref name="glyph"/>.</summary>
     public bool Contains(string? glyph) =>
-        !string.IsNullOrEmpty(glyph) && All.Any(option => option.Glyph == glyph);
+        !string.IsNullOrEmpty(glyph) && All.Any(option => option.Matches(glyph));
 
     /// <summary>
     /// Marks the chosen glyph in its own catalog and clears the others, so
@@ -532,7 +543,7 @@ internal sealed partial class GlyphCatalog
     {
         foreach (var catalog in new[] { Fluent, SimpleIcons, Emoji })
             foreach (var option in catalog.All)
-                option.IsSelected = catalog.Kind == kind && option.Glyph == glyph;
+                option.IsSelected = catalog.Kind == kind && option.Matches(glyph);
     }
 
     public IReadOnlyList<GlyphOption[]> Filter(string? query)
@@ -554,23 +565,45 @@ internal sealed partial class GlyphCatalog
 
         if (!typeface.TryGetGlyphTypeface(out var glyphTypeface)) return Array.Empty<GlyphOption>();
 
-        return glyphTypeface.CharacterToGlyphMap.Keys
-            .Where(codePoint => codePoint is >= 0xE000 and <= 0xF8FF)
-            .OrderBy(codePoint => codePoint)
-            .Select(codePoint =>
+        // The font keeps the old Segoe MDL2 Assets codepoints as aliases, so
+        // several codepoints draw the very same glyph - U+E00E and U+E76B are
+        // both ChevronLeft. Listing every codepoint filled the picker with
+        // visual duplicates, so group by glyph and offer each icon once. The
+        // docs table only names the modern codepoint, which is also the one
+        // worth handing to an action.
+        return glyphTypeface.CharacterToGlyphMap
+            .Where(pair => pair.Key is >= 0xE000 and <= 0xF8FF)
+            .GroupBy(pair => pair.Value, pair => pair.Key)
+            .Select(group =>
             {
+                var codePoints = group.OrderBy(codePoint => codePoint).ToArray();
+                var codePoint = Array.Find(codePoints, names.ContainsKey);
+                if (codePoint == 0) codePoint = codePoints[0];
+
                 var hex = codePoint.ToString("X4", CultureInfo.InvariantCulture);
                 var name = names.GetValueOrDefault(codePoint, $"Glyph {hex}");
                 var keywords = WordBoundaryRegex().Replace(name, "$1 $2");
+                var aliases = codePoints
+                    .Where(other => other != codePoint)
+                    .ToArray();
+
+                // Aliases stay searchable by codepoint, so the MDL2 value someone
+                // already has in their config still finds its icon.
+                var aliasHex = string.Join(" ", aliases
+                    .Select(other => other.ToString("X4", CultureInfo.InvariantCulture))
+                    .SelectMany(other => new[] { other, $"U+{other}" }));
+
                 return new GlyphOption
                 {
                     Glyph = char.ConvertFromUtf32(codePoint),
                     Name = name,
-                    SearchText = $"{name} {keywords} {hex} U+{hex}",
+                    SearchText = $"{name} {keywords} {hex} U+{hex} {aliasHex}",
                     Font = IconFonts.Fluent,
                     Kind = ActionIconKind.Glyph,
+                    Aliases = aliases.Select(char.ConvertFromUtf32).ToHashSet(StringComparer.Ordinal),
                 };
             })
+            .OrderBy(option => char.ConvertToUtf32(option.Glyph, 0))
             .ToArray();
     }
 
@@ -2508,7 +2541,7 @@ public partial class SettingsWindow : Window
         GlyphList.ItemsSource = rows;
         if (!scrollToSelection || _selectedAction is null) return;
 
-        var selectedRow = rows.FirstOrDefault(row => row.Any(option => option.Glyph == _selectedAction.Glyph));
+        var selectedRow = rows.FirstOrDefault(row => row.Any(option => option.Matches(_selectedAction.Glyph)));
         if (selectedRow is null) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded,
             () => GlyphList.ScrollIntoView(selectedRow));
