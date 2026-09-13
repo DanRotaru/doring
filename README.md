@@ -15,6 +15,9 @@ travels together.
 
 *Player not showing? [Watch the demo](https://github.com/DanRotaru/doring/raw/master/assets/DoRing-demo.mp4).*
 
+<img width="1030" height="720" alt="image" src="https://github.com/user-attachments/assets/8a08acda-3e44-448d-9a5b-9fa32e64b88b" />
+
+
 ## Getting started
 
 1. Download `DoRing.exe` from the [latest release](https://github.com/DanRotaru/doring/releases/latest)
