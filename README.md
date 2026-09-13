@@ -11,7 +11,9 @@ travels together.
 
 ## Demo
 
-<video src="https://github.com/DanRotaru/doring/raw/master/assets/DoRing-demo.mp4" controls muted playsinline width="720"></video>
+
+
+https://github.com/user-attachments/assets/1656f71e-724b-4f03-aa8b-fe8dda2c97c8
 
 *Player not showing? [Watch the demo](https://github.com/DanRotaru/doring/raw/master/assets/DoRing-demo.mp4).*
 
