@@ -1,80 +1,175 @@
 # DoRing
 
 A radial action menu for Windows — a compact ring of translucent, acrylic-styled
-icon buttons summoned by a global hotkey, in the spirit of Logitech's Actions Ring.
-Ships as a single portable `.exe`: no installer, no runtime prerequisite, copy it
-anywhere and run it.
+icon buttons that appears wherever your pointer is, summoned by a global hotkey.
+Point, release, the action runs.
 
-## Running it
+Ships as a single portable `.exe`: no installer, no runtime prerequisite, no
+registry footprint. Copy it anywhere — a folder, a USB stick, a synced drive — and
+run it. Its settings live in a `doring.json` beside the binary, so the whole thing
+travels together.
 
-```
-dotnet run --project DoRing
-```
+## Demo
 
-The app has no main window. It sits in the tray; press **Ctrl+Alt+Space** (or
-left-click the tray icon) to summon the ring at the mouse.
+<video src="https://github.com/DanRotaru/doring/raw/master/assets/DoRing-demo.mp4" controls muted playsinline width="720"></video>
+
+*Player not showing? [Watch the demo](https://github.com/DanRotaru/doring/raw/master/assets/DoRing-demo.mp4).*
+
+## Getting started
+
+1. Download `DoRing.exe` from the [latest release](https://github.com/DanRotaru/doring/releases/latest)
+   and put it wherever you like.
+2. Run it. There is no main window — it sits in the system tray.
+3. Press **Ctrl+Alt+Space** (or left-click the tray icon) to summon the ring at
+   your mouse.
+4. Right-click the tray icon → **Settings…** to change the shortcut and build your
+   own ring.
+
+Requires Windows 10 or 11, x64. Nothing else to install.
+
+## Using the ring
 
 Two ways to work it, and you don't choose between them up front — the same press
 does both:
 
-- **Hold and flick.** Keep the hotkey held, move onto an item, let go: it runs. No
-  click anywhere in the gesture.
-- **Tap and click.** Release the hotkey straight away and the ring stays up to be
-  clicked, or driven with `1`–`9`.
+- **Hold and flick.** Keep the hotkey held, shove the pointer toward an item, let
+  go. It runs. There is no click anywhere in the gesture, and the whole thing takes
+  about as long as a keyboard shortcut would.
+- **Tap and click.** Release the hotkey straight away and the ring stays on screen
+  to be clicked with the mouse, or driven with the number keys `1`–`9`.
 
-Aiming is by direction, not by landing on a target. Each button owns the whole wedge
-of the screen it sits in, out to the edge of the ring's window, so a shove upward
-picks the item at the top — there is no small circle to hit. Only the centre keeps a
-circular target, since it means cancel.
+**Aiming is by direction, not by hitting a target.** Each button owns the entire
+wedge of screen it sits in, from the centre outward — so a shove upward picks the
+item at the top even if the pointer flies far past it. The centre is the one
+exception: it stays a small circular target, because it means *cancel*, and cancel
+should require intent.
 
-- Hover a button — it pops, tints with its accent, and names itself on a pill beside it
-- The red centre button, `Esc`, or clicking away dismisses it; right-clicking the
-  centre button opens Settings, while right-clicking elsewhere dismisses the ring
-- Releasing the hotkey over the centre, or over nothing, dismisses it too
+Hovering a button pops it, tints it with its accent colour, and names it on a pill
+beside it.
 
-## Building the portable exe
+**Dismissing** is equally forgiving — the red centre button, `Esc`, clicking away,
+right-clicking outside the centre, or just releasing the hotkey over nothing.
+Right-clicking the centre button opens Settings.
 
-```
-dotnet publish DoRing -c Release
-```
+## What you can put on it
 
-Output: `DoRing/bin/Release/net10.0-windows/win-x64/publish/DoRing.exe`,
-one self-contained file of roughly 66 MB.
+### Ten kinds of action
 
-That size is close to the floor for a self-contained WPF app. Trimming is refused
-outright by the SDK (`NETSDK1168` for WPF, `NETSDK1175` for WinForms), and NativeAOT
-doesn't support WPF either. The only real lever is dropping `SelfContained`, which
-gets you a sub-megabyte exe but requires the .NET Desktop Runtime on every machine
-you copy it to.
+| Kind | What it does |
+| --- | --- |
+| **Launch** | Runs an app, opens a folder or a document. Arguments supported. |
+| **Url** | Opens a link in your default browser. |
+| **Keys** | Injects a key combo (`Ctrl+Shift+S`, `Win+D`, …) into the window that had focus before the ring opened. |
+| **ToggleWindow** | Minimises an app's window if it's already in front, brings it forward if it's open behind something, starts it if it isn't running. |
+| **Command** | Built-in system commands — media transport, volume, mouse clicks, window placement. |
+| **PasteText** | Types a stored snippet of text into the previously focused window. |
+| **Clipboard** | Reads or transforms the clipboard: copy, cut, paste, clear, URL encode/decode, HTML encode/decode, upper, lower, trim. |
+| **DateTime** | Pastes a formatted date or time — custom formats, UNIX timestamp, ISO week number. |
+| **MousePosition** | Warps the pointer to an absolute screen coordinate. |
+| **Group** | Holds child actions that fan out on hover. |
+
+### Groups — a second orbit that fans out
+
+Any action can hold children. Hovering it fans them out on an **outer orbit**, and
+they own the arc they span — but only past the halfway line between the two orbits,
+so overshooting the fan leaves the group open rather than collapsing it mid-reach.
+A group's parent can stay clickable itself, so one button both *does* something and
+*contains* things. Nesting is one level deep on purpose: a ring you have to
+navigate is no longer faster than a menu.
+
+### A library of ready-made actions
+
+The settings window ships a catalogue across eight categories, so building a ring
+is picking rather than typing:
+
+- **Open** — apps, files, folders, URLs, Explorer, Terminal, Task Manager, Task View, Run, Control Panel
+- **Media & volume** — play/pause, previous, next, stop, mute, live volume readout
+- **Keyboard** — arbitrary shortcuts, paste text, emoji picker, undo, redo, select all
+- **Mouse** — left/right/middle click, move to coordinate, centre pointer
+- **Windows** — show desktop, snap left/right, virtual desktops, Snip, Magnifier, close/maximise/minimise, move window to centre/left/right/corners, Windows Settings
+- **System** — Quick Settings, Search, Project display, Accessibility
+- **Clipboard** — copy, cut, paste, clear, URL/HTML encode and decode, upper, lower, trim, clipboard history
+- **Date and time** — current date, current time, date + time, UNIX timestamp, week number
+
+### Icons: glyphs, brand icons, emoji, or your own file
+
+Four icon sources per action:
+
+- **Segoe Fluent Icons** — the Windows 11 system icon set, searchable by name
+- **Simple Icons** — a bundled brand-icon font (GitHub, Spotify, Figma, …),
+  optionally drawn in each brand's own colour
+- **Emoji**, in true colour
+- **A file of your own** — `.ico`, `.png`, any image, or an `.exe` whose icon gets
+  extracted
+
+Each action can also override the global accent colour with its own.
+
+### Presets
+
+The **Presets** tab saves the current layout as a named snapshot. Switching a
+preset swaps out the actual ring; you can update a preset from later edits, rename
+it in place, or delete it. Presets carry actions and groups only — the shortcut and
+appearance stay global, so switching never changes how the app looks or opens. New
+configs ship with **Everyday** and **Media** presets.
+
+### Thirteen ring animations
+
+`Pop` (the default: springs past full size and settles back), `Elastic`, `Zoom`,
+`Drop`, `Spin`, `Swirl`, four directional `Slide`s, `Tilt`, `Whirl`, `Unfold`, and
+`None`. One choice covers both directions — the exit is the entrance run backwards,
+so the two always match. Two sliders tune it: **speed** and **travel** (how far it
+moves, without touching the timing).
+
+### Scroll to adjust volume
+
+Any action can carry a scroll behaviour. Rolling the wheel over a media or volume
+button changes the Windows master volume, and a dedicated **Volume** button shows
+the current level as a live number on its face.
+
+### Explorer context tokens
+
+`%path%` and `%sel%` in an action's arguments expand to the folder open in the
+Explorer window you were last in and the item selected there. Both quietly collapse
+to nothing when there's no Explorer window or nothing selected — so "open a terminal
+here" or "run this tool on the selected file" become one-button actions.
+
+### A shortcut picker that captures combos Windows has claimed
+
+The picker listens at a level below the shell, so pressing `Win+Z` sets your
+shortcut instead of opening Snap Layouts — and if a combo can't be registered the
+normal way, DoRing delivers it anyway.
+
+### Light on resources
+
+~5 MB of RAM at idle, around 100 MB while the ring is actually on screen, back to
+~4 MB a few seconds after it closes. A **Hardware acceleration** setting turns the
+GPU back on if you scale the ring far enough up to want it.
 
 ## Settings
 
-Right-click the tray icon and choose **Settings...** to configure the shortcut,
-gesture behaviour, appearance, and the actions around the ring. The Actions page
-supports adding, deleting, reordering, and grouping actions. Changes are validated,
-saved, and applied immediately; hardware acceleration is the one setting that needs
-an app restart.
+Right-click the tray icon and choose **Settings…**, or right-click the ring's
+centre button. The window covers the shortcut, gesture behaviour, motion,
+appearance, and the actions themselves, with a reset control on every individual
+setting. Changes are validated, saved, and applied immediately — hardware
+acceleration is the one setting that needs a restart.
 
-The **Presets** tab beside **Actions** and **Edit** saves the current action layout
-as a named snapshot. Switching a preset replaces the actual actions on the ring;
-you can also update it from later edits, rename it in place, or delete it. Presets
-contain actions and groups; the hotkey and appearance settings remain global. New
-configs include Everyday and Media presets.
+Beside the list-based **Actions** page there's an **Edit** page showing the ring
+laid out as it will appear. Drag an action from the library onto a ring position,
+drag ring items to reorder or to drop them into a group, select one to edit it, and
+undo the lot with a single **Undo all**.
 
-The settings window still writes the portable `doring.json` beside the exe.
-Choose **Edit JSON...** from the tray menu if you want to edit that file directly,
-then choose **Reload settings**.
+The tray menu is: Show ring · Settings… · Edit JSON… · Reload settings · Exit.
 
-You can also open the settings window directly while debugging:
+## Editing `doring.json` by hand
 
-```
-DoRing.exe --settings
-```
+On first run the app writes `doring.json` next to the exe. **Edit JSON…** from the
+tray menu opens it; **Reload settings** picks up your changes. The file is written
+with relaxed escaping specifically so it stays readable.
 
-## JSON reference
-
-On first run the app writes `doring.json` next to the exe (kept beside the
-binary so the whole thing stays portable).
+A config written by an older build — naming an animation this build doesn't have,
+or a setting that was renamed — loads anyway: unknown values fall back to defaults
+rather than taking every *other* setting down with them. A file that's malformed
+outright doesn't stop the app from starting, and is left in place.
 
 ```jsonc
 {
@@ -84,16 +179,24 @@ binary so the whole thing stays portable).
   "ButtonRadius": 25,      // size of each round button, in DIPs
   "OrbitRadius": 60,       // centre-to-button distance; grown if buttons won't fit
   "HubRadius": 18,         // the centre dismiss button
-  "ShowLabels": true,      // name the hovered action on a pill below the ring
+  "ShowLabels": true,      // name the hovered action on a pill beside it
+  "FadeOthersOnGroupOpen": true,
+  "SettingsOnCloseRightClick": true,  // right-click the centre button to open Settings
   "Tint": "#26262E",
   "TintOpacity": 0.9,      // lower = more see-through
   "Accent": "#5C7CFA",
   "FollowCursor": true,    // open at the mouse rather than the screen centre
-  "HardwareAcceleration": false,  // see "Memory" below before turning this on
+  "Animation": "Pop",
+  "AnimationSpeed": 1.0,   // divides every duration
+  "AnimationTravel": 1.0,  // scales how far things move
+  "AnimateClose": true,    // an instant close is faster for keystroke actions
+  "HardwareAcceleration": false,
+  "ColoredIcons": false,   // draw Simple Icons in their brand colours
+  "ColoredEmoji": true,
   "Actions": [
-    { "Label": "Terminal", "Glyph": "", "Kind": "Launch", "Target": "wt.exe" },
-    { "Label": "Copy",     "Glyph": "", "Kind": "Keys",   "Target": "Ctrl+C" },
-    { "Label": "Docs",     "Glyph": "", "Kind": "Url",    "Target": "https://example.com" }
+    { "Label": "Terminal", "Kind": "Launch", "Target": "wt.exe" },
+    { "Label": "Copy",     "Kind": "Keys",   "Target": "Ctrl+C" },
+    { "Label": "Docs",     "Kind": "Url",    "Target": "https://example.com" }
   ],
   "Presets": [
     {
@@ -106,201 +209,96 @@ binary so the whole thing stays portable).
 }
 ```
 
-`Kind` is one of:
+What `Target` means depends on `Kind`:
 
 | Kind | Target |
 | --- | --- |
-| `Launch` | An exe, folder, or document path. `Arguments` is passed along. Environment variables are expanded. |
+| `Launch` | An exe, folder, or document path. `Arguments` is passed along; environment variables and `%path%` / `%sel%` are expanded. |
 | `Url` | Opened in the default browser. |
-| `Keys` | A combo like `Ctrl+Shift+S`, injected into whichever window had focus before the ring opened. |
-| `ToggleWindow` | A process name like `WindowsTerminal.exe`, or a full path to the exe. Minimises the window if it was already in front, brings it forward if it is open, launches `Target` (with `Arguments`) if it isn't running. |
+| `Keys` | A combo like `Ctrl+Shift+S`. |
+| `ToggleWindow` | A process name like `WindowsTerminal.exe`, or a full path to the exe (launched with `Arguments` if it isn't running). |
+| `Command` | A built-in command name — `MediaPlayPause`, `VolumeMute`, `Volume`, `MouseLeftClick`, `WindowLeft`, `WindowsSettings`, and so on. |
+| `PasteText` | The literal text to type. |
+| `Clipboard` | One of `url-encode`, `url-decode`, `html-encode`, `html-decode`, `upper`, `lower`, `trim`. |
+| `DateTime` | A .NET format string, or `unix` for a timestamp, or `week` for the ISO week number. |
+| `MousePosition` | `x,y` in screen pixels, e.g. `1920,540`. |
+| `Group` | Nothing — the children go in `Items`. |
 
-`Glyph` is a single character — a [Segoe Fluent Icons](https://learn.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font)
-codepoint or an emoji. `Accent` on an individual action overrides the global one.
+A few per-action fields worth knowing:
 
-An action can display a file or application icon instead. Set `IconKind` to
-`AppIcon` and `IconPath` to an `.ico`, `.png`, other image, or `.exe` path. Relative
-paths are resolved beside `DoRing.exe`; environment variables are expanded.
+- `Items` — child actions; any button with these becomes a group. A group whose
+  `Kind` is something other than `Group` stays clickable itself.
+- `IconKind` — `Glyph` (the default), `SimpleIcon`, `Emoji`, or `AppIcon`. For
+  `AppIcon`, set `IconPath` to an `.ico`, `.png`, other image, or `.exe`; relative
+  paths resolve beside `DoRing.exe`.
+- `Glyph` — a single character: a [Segoe Fluent Icons](https://learn.microsoft.com/windows/apps/design/style/segoe-fluent-icons-font)
+  codepoint, a Simple Icons one, or an emoji.
+- `Accent` / `IconColor` — override the global accent for this one button.
+- `ScrollBehavior` — `Volume` to make the wheel adjust volume over this button.
 
-Button count is however long the array is. Add a tenth action and `OrbitRadius`
+Button count is however long the `Actions` array is. Add a tenth and `OrbitRadius`
 widens on its own rather than the buttons shrinking to fit.
 
-## Memory
+## Command-line switches
 
-A tray app has no business holding 200 MB, and the first version held 195. Measured
-on a 14-core machine:
+| Switch | Effect |
+| --- | --- |
+| `--show` | Opens the ring immediately, without waiting for the hotkey. |
+| `--settings` | Opens the settings window directly. |
 
-| | working set | private | threads |
-| --- | --- | --- | --- |
-| Hello-world WPF app (the baseline, not our code) | 195 MB | 145 MB | 66 |
-| DoRing, as first written | 195 MB | 145 MB | 66 |
-| GPU rendering off | 96 MB | 50 MB | 15 |
-| ...plus nothing WPF touched until first use | 61 MB briefly, then 5 MB | 14 MB | 14 |
-| While the ring is on screen | ~103 MB | 55 MB | 15 |
-| A few seconds after it closes | 4 MB | | 14 |
+One caveat if you script against `--show`: a window shown this way cannot take the
+foreground — Windows only grants that off real user input — so it won't respond to
+`Esc` and won't auto-hide. It also means `CopyFromScreen` captures nothing for a
+layered window; use `PrintWindow` with `PW_RENDERFULLCONTENT` for a screenshot.
 
-Three changes, in descending order of how much they mattered:
+## Building from source
 
-**`RenderMode.SoftwareOnly`.** Standing up WPF's D3D device costs ~100 MB and 51
-driver threads. For eight circles on screen two seconds at a time that is a
-preposterous trade, and software rendering draws this UI without breaking stride -
-every screenshot in this repo is software-rendered. Set `HardwareAcceleration: true`
-if you scale the ring up far enough to want the GPU back.
+Requires the .NET 10 SDK.
 
-**Nothing WPF-shaped exists until the ring is first summoned.** Two things used to
-force WPF's rendering stack up at launch: constructing the window eagerly, and - less
-obviously - the hotkey sink. `HwndSource` drags the whole MediaContext up with it, so
-`HotKeyManager` registers a hand-rolled Win32 message-only window instead. Together
-these mean a fresh process peaks at 61 MB for under a second (runtime and GDI+ init)
-and then sits at ~5 MB, rather than holding ~100 MB from launch until the first trim
-swept it.
+```
+dotnet run --project DoRing          # run it
+dotnet publish DoRing -c Release     # build the portable exe
+```
 
-**An idle working-set trim.** `MemoryTrim` collects and calls `EmptyWorkingSet` 1.2 s
-after startup and 4 s after the ring closes. Be precise about what this buys: it
-evicts pages from the resident set, so the physical RAM genuinely returns and Task
-Manager genuinely reads single digits, but the ~50 MB of *committed* memory is still
-committed. Windows faults back what the next summon needs in a few milliseconds.
+Output: `DoRing/bin/Release/net10.0-windows/win-x64/publish/DoRing.exe`, one
+self-contained file of roughly 66 MB.
 
-Verified end to end: 5 MB idle before first use, 103 MB with the ring open, 4 MB a
-few seconds after it closes.
+That size is close to the floor for a self-contained WPF app. Trimming is refused
+outright by the SDK (`NETSDK1168` for WPF, `NETSDK1175` for WinForms), and NativeAOT
+doesn't support WPF either. The only real lever is dropping `SelfContained`, which
+gets you a sub-megabyte exe but then requires the .NET Desktop Runtime on every
+machine you copy it to — which costs the portability the whole design is built on.
 
-What did *not* help, measured and then reverted: `InvariantGlobalization`,
-`GC.ConserveMemory`, `UseSystemResourceKeys`, non-concurrent GC, and thread-pool
-limits. Together they moved nothing, and each carries a real cost - worse exception
-messages, changed string comparison, more GC CPU. They are absent from the csproj
-deliberately; putting them back needs a measurement, not a hunch.
-
-The 16 drop shadows are gradient discs rather than `DropShadowEffect` for a related
-reason: under software rendering a real blur is CPU work on every frame of the open
-animation, and at this size a static radial gradient is indistinguishable.
-
-## Debugging
-
-`DoRing.exe --show` opens the ring immediately, without waiting for the hotkey.
-
-One caveat if you script against it: a window shown this way cannot take the
-foreground (Windows only grants that off real user input), so it will not respond to
-`Esc` and will not auto-hide. It also means `CopyFromScreen` captures nothing for a
-layered window - use `PrintWindow` with `PW_RENDERFULLCONTENT` if you need a
-screenshot.
-
-## Layout
+## Project layout
 
 ```
 DoRing/
-  App.xaml(.cs)             tray icon, hotkey registration, single-instance guard
-  Views/RingWindow.xaml.cs  the ring: buttons, hub, label pill, hover, invoke
+  App.xaml(.cs)               tray icon, hotkey registration, single-instance guard
+  Views/
+    RingWindow.xaml(.cs)      the ring: buttons, hub, label pill, hover, invoke
+    SettingsWindow.xaml(.cs)  settings, action library, visual editor, presets
+    ActionDetailsEditor       the per-action editing pane
+  Models/RingConfig.cs        the config model, its defaults, and migration
   Services/
-    RingLayout.cs           button placement + wedge (direction-based) hit testing
-    MemoryTrim.cs           hands idle pages back to the OS
-    AcrylicBrushes.cs       the faux-acrylic tint / sheen / grain layers
-    ActionRunner.cs         launches processes, injects keystrokes
-    HotKeyParser.cs         "Ctrl+Alt+Space" -> (ModifierKeys, Key)
+    RingLayout.cs             button placement + wedge (direction-based) hit testing
+    RingAnimations.cs         the thirteen entrance/exit motions
+    ActionRunner.cs           launches processes, injects keystrokes, runs commands
+    AcrylicBrushes.cs         the faux-acrylic tint / sheen / grain layers
+    ColorEmoji.cs             COLR/CPAL colour emoji rendering
+    SimpleIconLibrary.cs      the bundled brand-icon font and its colours
+    ExplorerContext.cs        %path% / %sel% resolution
+    SystemVolume.cs           Core Audio master volume
+    MemoryTrim.cs             hands idle pages back to the OS
+    HotKeyParser.cs           "Ctrl+Alt+Space" -> (ModifierKeys, Key)
   Interop/
-    NativeMethods.cs        P/Invoke surface
-    HotKeyManager.cs        RegisterHotKey against a raw Win32 message-only window
+    NativeMethods.cs          the P/Invoke surface
+    HotKeyManager.cs          RegisterHotKey on a message-only window, + hook fallback
+    KeyCaptureHook.cs         captures shell-owned combos for the shortcut picker
+    TrayMenuWindow.cs         a real owner window for the native tray popup menu
 ```
-
-## Three things worth knowing before you extend this
-
-**The acrylic is simulated, deliberately.** `AllowsTransparency="True"` makes a
-*layered* window, and layered windows can't host DWM blur-behind — so real system
-acrylic and per-pixel-shaped content are mutually exclusive in WPF. `AcrylicBrushes`
-approximates it the way the real effect is composed: tint, then a luminosity sheen,
-then fine noise, clipped per button. At button scale it reads as the genuine article
-and costs nothing per frame.
-
-**The ring is positioned with `SetWindowPos` in physical pixels, not `Window.Left`
-/`Top`.** Those two look like the obvious answer and are a trap: in a PerMonitorV2
-process they are neither physical pixels nor DIPs of the monitor you're aiming at, so
-on a multi-monitor or scaled desktop the ring lands somewhere else entirely. The
-placement code resolves the target monitor, asks it for its DPI, converts the DIP
-window size to real pixels, and clamps to the work area.
-
-**Labels are placed, not laid out.** A single pill is measured and moved on hover, to
-whichever side of the button faces away from the middle: beside it for buttons out on
-the flanks, above or below for buttons on the vertical axis, where "beside" would
-point the label back into the ring. Close is a special case - under the ring, tucked
-below the first orbit rather than out past the group orbit. The window reserves room
-for the widest label on every side at build time, since its size is fixed once shown.
-
-`MeasurePill` calls `InvalidateMeasure` before `Measure`, and that call is
-load-bearing. `Measure` returns immediately when an element's measure is already
-valid for the same constraint, so without it a short label silently inherits the
-previous long one's width and sits pushed away from its button - visible as a label
-that drifts left after you have hovered a group.
-
-**Labels are placed, not laid out.** A single pill is measured and moved on hover, to
-whichever side of the button faces away from the middle: beside it for buttons out on
-the flanks, above or below for buttons on the vertical axis, where "beside" would
-point the label back into the ring. Close is a special case - under the ring, tucked
-below the first orbit rather than out past the group orbit. The window reserves room
-for the widest label on every side at build time, since its size is fixed once shown.
-
-`MeasurePill` calls `InvalidateMeasure` before `Measure`, and that call is
-load-bearing. `Measure` returns immediately when an element's measure is already
-valid for the same constraint, so without it a short label silently inherits the
-previous long one's width and sits pushed away from its button - visible as a label
-that drifts left after you have hovered a group.
-
-**The hotkey is registered with `MOD_NOREPEAT`, and that flag is the whole
-anti-blink story.** Windows re-sends `WM_HOTKEY` for keyboard auto-repeat, so a
-combo held a fraction too long fired the toggle several times: open, close, open.
-It was intermittent precisely because it depended on how long the key was held - a
-quick tap looked perfect. `MOD_NOREPEAT` makes one physical press mean exactly one
-notification, which is what lets `Toggle` stay a plain instant show/hide with no
-debounce, settle window, or other timer standing between the press and the ring.
-
-**The show sequence is order-sensitive too.** `PrepareForShow` zeroes the opacity
-*before* `Show()`, and `PositionWindow` runs *after* it. An animation holds its final
-value at higher precedence than a local one, so assigning `Opacity = 0` while the
-previous summon's fade is still in effect does nothing, and the first composed frame
-lands at full opacity; clearing the animations with `BeginAnimation(prop, null)` fixes
-that. Separately, WPF re-applies its own layout on `Show()` and can override a
-`SetWindowPos` issued beforehand, snapping the ring across the screen - so it is
-shown first and moved after, while still transparent.
-
-**Hit testing is by direction, not against the visuals.** `RingLayout.SectorIndex`
-turns a point into an angle and an angle into a button: each one owns the wedge it
-sits in, from the hub out to wherever the window ends, which is what makes a flick in
-a direction enough to choose. An open group's children own the arc they fan across,
-but only past the halfway line between the two orbits — and only that arc, so
-overshooting the fan leaves the group open rather than collapsing it mid-reach. The
-centre is the one exception and stays a plain circle.
-
-Two earlier approaches are worth knowing were tried. WPF hit testing against the
-visuals lets the glyph text and hairline strokes steal hits inside their own button.
-Nearest-centre-with-slop fixes that but keeps the targets small, so the ring still had
-to be aimed at rather than thrown at.
-
-**The wedges need `CreateInputPad` to exist at all, and the reason is not obvious.**
-`AllowsTransparency` makes this a layered window, and a layered window passes mouse
-input *through* pixels whose alpha is zero. Nearly all of this window is such a pixel,
-so `MouseMove` only ever arrived while the pointer was over a drawn circle — the
-wedges were computed correctly and never asked about. A rectangle over the whole
-window filled with one unit of alpha is enough to make Windows deliver the messages
-and is invisible on any display. The symptom this produced is worth recognising if it
-comes back: the hold gesture worked everywhere while plain hovering only worked on the
-circles, because the gesture polls `GetCursorPos` instead of waiting to be told.
-
-**The hold gesture polls, and has to.** `RegisterHotKey` reports the press and never
-the release, so `OnHoldTick` reads `GetAsyncKeyState` every 16 ms and ends the gesture
-when any part of the combo comes up. It arms only after `HoldThresholdMs`, which is
-what keeps a tap from being read as a hold and stops the pointer's resting position
-from counting as a choice the instant the ring appears. The same tick reads the cursor
-via `GetCursorPos` rather than mouse events: WPF only delivers moves over the window,
-and a quick flick outruns it — polling keeps aiming honest when the pointer has shot
-well past the ring.
-
-Releasing does not run the action immediately, and that delay is load-bearing. A
-combo comes up one key at a time, and a `Keys` action injected while the other half is
-still physically down arrives at the target window with those modifiers folded in —
-`Ctrl+C` chosen out of `Ctrl+Alt+Space` lands as `Ctrl+Alt+C`. So the release locks
-the choice, stops tracking the cursor, and waits for the keyboard to clear (capped at
-700 ms, in case something is stuck) before running anything.
 
 ## Ideas not built yet
 
-- Nested rings — a button that opens a sub-ring
-- Per-app rings, keyed off the foreground window's process name
-- Start-with-Windows toggle (a shortcut in `shell:startup`)
+- **Nested rings** — a button that opens a whole sub-ring rather than a fan
+- **Per-app rings**, keyed off the foreground window's process name
+- **Start with Windows** toggle (a shortcut in `shell:startup`)
